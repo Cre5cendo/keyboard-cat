@@ -689,3 +689,32 @@ release 前必须还原（本轮已还原并复查过）；测试 exe 放 C: 盘
 - `使用说明.txt`
 
 **坑**：这四个 exe 是复制过来的，运行中的 `keyboard-cat-new.exe` 仍锁着 `C:\Users\Administrator\AppData\Local\KeyboardCat\` 里的原文件，而任务栏/托盘图标锚定在原路径上。所以：任务栏固定的那个图标继续指向 AppData 目录；`dicts/` 里的 exe **不要直接双击覆盖**——等旧实例退出后用它替换 AppData 下的 `keyboard-cat-new.exe` 即可。
+
+---
+
+## 二十五、2026-11-10 18:20 发 GitHub + README 截图
+
+**仓库**：https://github.com/Cre5cendo/keyboard-cat （PUBLIC，main）
+
+- 首次提交 `ca422ae`「键盘猫 v1：桌面挂件 + OBS 浏览器源」，556 个文件、pack 6.62 MiB。
+- 本次提交 `5c758b4`「README 补截图」，打了 tag `v1.0`。
+- 账号 Cre5cendo，凭据在 gh 的 keyring 里（`gh auth login` 过一次）。**git 本身走不通时用 gh 走 API，或在 `git push` 前 export 本地代理 `HTTPS_PROXY=http://127.0.0.1:7897`** —— 2026-11-10 这台机直连 github.com:443 超时，而 gh api 正常。
+
+**README 截图**（`docs/shots/`，用 `_shots_readme.mjs` 生成，headless Chrome + CDP，本地 http :9733）：
+
+| 文件 | 内容 | 说明 |
+|---|---|---|
+| 01-board.png | 樱夜主题键盘 + 一只猫 | 1920×960，DPR 3 |
+| 02-panel-dex.png | 图鉴/编队（4×2 上阵栏） | 1770×1230，DPR 1.5 |
+| 03-panel-set.png | 设置页 | 同上 |
+| 04-theme-wood.png | 木质主题 | 1920×960，DPR 3 |
+
+**截图踩坑（复用 `_shots_readme.mjs` 前务必知道）**：
+
+- `demo.html:1142` 的 `#dex/#set/...` 分支实际打不开面板（TABFN 里没渲染），要导航到 `#theme=sakura` 后再 CDP 执行 `document.getElementById('panel').style.display='flex'; showTab('dex')`，等 700ms 再截。
+- 拍键盘本体一律用 `#th&theme=<id>`（`demo.html:1148` 的截图模式：隐藏 .plane/#bar/.taskbar、去掉外发光、贴左上）。不加 `#th` 会把说明文字和模拟任务栏一起拍进去。
+- 换主题必须重新 `Page.navigate`，改 hash 不会重跑初始化。
+- file:// 下 canvas 被 taint，`getImageData` 直接报错，必须起 http。
+
+**未做**：tag 是个轻量标注 tag（`git tag -a`），没有打包 release、没有上传 exe（exe 不进仓库，`dicts/` 在 .gitignore 里）。
+
