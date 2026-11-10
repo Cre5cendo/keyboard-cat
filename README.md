@@ -7,6 +7,8 @@
 
 ![demo](https://img.shields.io/badge/自测-92%20PASS-success)
 
+![樱夜主题](docs/shots/01-board.png)
+
 ## 玩法
 
 - 猫被击飞落定时 +1 鱼干；连击第 3 下起每下 +1；空中接力（落地 0.2 秒内再打中）+2；同一颗键连飞 10 次收益减半
@@ -69,9 +71,14 @@ cargo build --release
 
 为什么不能用「窗口采集」：键盘猫的挂件是分层窗口（WS_EX_LAYERED），没有 DWM 重定向表面，Windows Graphics Capture 会直接拒绝（`CreateForWindow 0x80070057`），BitBlt 也读不到像素。所以走浏览器源。
 
+<img src="docs/shots/02-panel-dex.png" width="520" alt="图鉴与编队">
+<img src="docs/shots/03-panel-set.png" width="520" alt="设置">
+
 ## 主题
 
 内置 8 套主题。第 8 套「樱夜」是用参考图逐颗扣键帽拼出来的。
+
+![木质主题](docs/shots/04-theme-wood.png)
 
 ## 许可
 
