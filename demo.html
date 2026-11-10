@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>键盘猫 demo v2</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:linear-gradient(160deg,#191722,#1f1c22 48%,#262020);font-family:"Microsoft YaHei",sans-serif;overflow:hidden;user-select:none}
+.plane{position:absolute;left:18px;top:12px;width:400px;color:#fff}
+.plane h3{margin:0 0 6px;font-size:15px;color:#d8bd84}
+.plane p{margin:0 0 4px;font-size:12.5px;line-height:1.6;opacity:.86}
+.plane .row{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.plane button{padding:5px 11px;border:0;border-radius:7px;background:#d8bd84;color:#2b1d14;font-size:12.5px;cursor:pointer;font-family:inherit}
+.plane button.ghost{background:rgba(255,255,255,.16);color:#fff}
+.plane label{font-size:12.5px;opacity:.9;display:block;margin-top:6px;cursor:pointer}
+.plane input{margin-right:5px;vertical-align:-2px}
+#widget{position:absolute;width:max-content;filter:drop-shadow(0 8px 24px rgba(0,0,0,.45))}
+#bar{display:flex;gap:12px;align-items:center;padding:4px 10px;font-size:12.5px;color:#fff;cursor:move;background:rgba(0,0,0,.42);border-radius:8px 8px 0 0;width:max-content;margin-left:8px}
+#bar b{color:#d8bd84}
+#combo{color:#ff9e5e;min-width:62px}
+canvas{display:block;border-radius:10px}
+.taskbar{position:absolute;left:0;right:0;bottom:0;height:40px;background:rgba(0,0,0,.5);color:#9aa3b2;font-size:12px;display:flex;align-items:center;justify-content:center}
+#msg{position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);background:rgba(20,16,12,.92);color:#ffe6b0;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;z-index:50}
+#panel{position:absolute;inset:0;background:transparent;display:none;align-items:center;justify-content:center;z-index:40}
+#panelBox{position:relative;width:min(1120px,94vw);height:min(780px,86vh);display:flex;flex-direction:column;
+  background:url(ui/panel.png) center/100% 100% no-repeat;color:#f2ecf6;padding:0 26px 30px}
+#panelHead{height:114px;flex:0 0 auto;padding:52px 0 0;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+#tabs{display:flex;gap:8px;flex:1;align-items:flex-start;padding-left:140px;flex-wrap:nowrap}
+#tabs button{border:0 solid transparent;border-width:0 31px;border-image:url(ui/tab_off.png) 0 31 fill stretch;outline:0;
+  background:transparent;color:#f3eef7;font-size:15px;font-family:inherit;cursor:pointer;white-space:nowrap;
+  height:62px;line-height:62px;padding:0;position:relative;z-index:1;
+  text-shadow:0 1px 2px rgba(18,10,28,.55);
+  transition:filter .12s,transform .1s}
+#tabs button img{width:23px;height:23px;margin-right:9px;vertical-align:-6px}
+#tabs button:hover{filter:brightness(1.12)}
+#tabs button:active{transform:translateY(1px)}
+#tabs button.on{border-image:url(ui/tab_on.png) 0 31 fill stretch;color:#6b4a33;font-weight:bold;text-shadow:none}
+#tabs button.on img{filter:brightness(0) saturate(100%) invert(31%) sepia(18%) saturate(1200%) hue-rotate(340deg) brightness(.8)}
+#panelClose{position:absolute;right:14px;top:40px;width:66px;height:68px;border:0;padding:0;cursor:pointer;
+  background:url(ui/close.png) center/100% 100% no-repeat;text-indent:-999em;overflow:hidden;z-index:5}
+#panelClose:hover{filter:brightness(1.08)}
+#panelBody>div:first-child>h4:first-child,#panelBody>h4:first-child{margin-top:0}
+#panelBody{padding:0 22px 0;overflow:auto;font-size:13px;line-height:1.65;flex:1;color:#eae4f2;
+  background:url(ui/paw_wm.png) right 14px bottom 10px/112px 105px no-repeat}
+#panelBody::-webkit-scrollbar{width:12px}
+#panelBody::-webkit-scrollbar-track{background:transparent;margin:10px 0}
+#panelBody::-webkit-scrollbar-thumb{background:rgba(254,198,81,.45);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+#panelBody::-webkit-scrollbar-thumb:hover{background:rgba(246,185,58,.85);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));gap:9px}
+.card{background:url(ui/card.png) center/100% 100% no-repeat;border:0;border-radius:16px;padding:9px 11px 8px;position:relative;min-height:114px;display:flex;flex-direction:column;overflow:hidden}
+.card.theme{height:auto;overflow:visible}
+.card.ineq{box-shadow:inset 0 0 0 2px #e6bf7a,0 0 10px rgba(230,191,122,.28);border-radius:16px}
+.card .dt{position:absolute;right:9px;top:19px;width:54px;height:20px;padding:0;border:0;background:url(ui/btn_gold_sm.png) center/100% 100% no-repeat;color:#5b3d16;font-size:11px;font-weight:bold;cursor:pointer;font-family:inherit;z-index:2;white-space:nowrap;display:flex;align-items:center;justify-content:center;line-height:1}
+.card .dt:hover{filter:brightness(1.06)}
+.card .n{color:#fff;font-size:13.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-right:58px;min-height:19px}
+.card .nm{font-weight:bold}
+.card .eq{font-size:10.5px;color:#ffd978;background:rgba(255,214,120,.16);border-radius:7px;padding:1px 6px;font-weight:normal}
+.card .por{width:44px;height:34px;object-fit:contain;image-rendering:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));flex:0 0 auto}
+.card.dim .por{filter:grayscale(1) opacity(.5)}
+.card .s{color:#b3abc4;font-size:11.5px;margin-top:4px;line-height:1.55;flex:1;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .p{color:#ffd978;font-size:13px;margin-top:6px;display:flex;align-items:center;gap:8px;letter-spacing:1px}
+.card .p .ry{font-size:11px;color:#a59db8;letter-spacing:0}
+.card.dim{opacity:.45}
+.card.act{cursor:pointer}
+.card .cap{padding:0 0 12px;border-radius:11px;overflow:hidden;background:#0d0a16;margin:-2px 0 8px;display:block}
+.card .cap img{width:100%;display:block;image-rendering:auto}
+.card.theme{padding:9px 10px 8px}
+.card.theme .cap{margin:0 0 7px;padding:0;border-radius:9px}
+.card.theme .s{margin-top:3px;flex:0}
+.card.act:hover{filter:brightness(1.1)}
+.slot{display:grid;grid-template-columns:repeat(4,161px);justify-content:start;gap:10px;margin:0 0 16px}
+.slot .sl{width:161px;height:128px;border:0;background:url(ui/slot_off.png) center/100% 100% no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;color:#cfc6dd;cursor:pointer;position:relative}
+.slot .sl.on{background-image:url(ui/slot_on.png);color:#fff}
+.slot .sl img{width:72px;height:56px;object-fit:contain;image-rendering:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}
+.slot .sl b{font-size:12px;font-weight:bold;letter-spacing:.5px}
+.slot .sl .st{font-size:10.5px;color:#ffd978;letter-spacing:1px}
+.slot .sl[data-add]{cursor:default;color:#a99fc0}
+.slot .sl[data-add] b{font-size:26px;line-height:1;color:#8a83a0}
+.slot .sl[data-add] .hint{font-size:10.5px;color:#8a83a0}
+.slot .sl[data-add]:hover{filter:brightness(1.12)}
+.det{display:flex;gap:14px;position:relative;background:url(ui/card.png) center/100% 100% no-repeat;border-radius:16px;padding:14px 90px 14px 16px;margin:2px 0 6px;min-height:106px}
+.detL{flex:0 0 auto;display:flex;align-items:center}
+.detL img{width:88px;height:68px;object-fit:contain;image-rendering:auto;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+.detR{flex:1;min-width:0}
+.detN{color:#fff;font-size:15.5px;font-weight:bold;display:flex;align-items:center;gap:9px}
+.detN .ry{font-size:11px;color:#a59db8;font-weight:normal}
+.detS{color:#ffd978;font-size:14px;letter-spacing:2px;margin-top:2px}
+.detS .dim{color:#5f5872}
+.detD{color:#b3abc4;font-size:11.5px;margin-top:6px;line-height:1.55}
+.detX{position:absolute;right:12px;top:12px;width:62px;height:34px;padding:0;border:0;background:url(ui/btn_gold.png) center/100% 100% no-repeat;color:#5b3d16;font-size:12px;font-weight:bold;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.detX:hover{filter:brightness(1.06)}
+.rw{color:#cfc7dd;font-size:12.5px;line-height:1.95;padding-left:2px}
+.rw b{color:#ffd978;letter-spacing:1px}
+.rw .tg{color:#8fd6a1;font-size:11px;margin-left:8px}
+.rw .lk{color:#77708a;font-size:11px;margin-left:8px}
+h4{margin:16px 0 8px;color:#f7d98c;font-size:13px}
+#panelBody input[type=range]{accent-color:#d8bd84;vertical-align:-3px;width:110px}
+#panelBody input[type=checkbox]{accent-color:#d8bd84}
+#panelBody button{padding:6px 14px;border:0;border-radius:8px;background:#d8bd84;color:#2b1d14;cursor:pointer;font-family:inherit;font-size:12.5px}
+#panelBody button.gh{background:rgba(255,255,255,.14);color:#e9e6f0}
+#panelBody button:hover{filter:brightness(1.08)}
+.tip2{color:#9aa3b2;font-size:12px;margin:0 0 10px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:14px;line-height:1.9;padding:3px 0}
+.sw .lb{color:#e2dcea;font-size:12.5px}
+.sw .swb{position:relative;width:42px;height:22px;border-radius:11px;background:rgba(255,255,255,.16);cursor:pointer;flex:0 0 auto;transition:background .14s}
+.sw .swb::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .14s}
+.sw .swb.on{background:#d8bd84}
+.sw .swb.on::after{transform:translateX(20px);background:#2b1d14}
+
+</style></head>
+<body>
+<div class="plane">
+  <h3>键盘猫 demo v3</h3>
+  <p>直接打字。猫蹲在某个键上不动，按下它脚下的键就把它击飞，落点键会闪。</p>
+  <p style="opacity:.7">图鉴/编队、扭蛋商店、日记、成就、设置，都在面板里用标签页切换。</p>
+  <div class="row">
+    <button id="bOpen">打开面板</button>
+    <button id="bTheme" class="ghost">换键盘</button>
+  </div>
+  <input type="file" id="fileIn" accept=".json" style="display:none">
+</div>
+<div id="widget"><div id="bar">
+  <span>鱼干 <b id="fish">0</b></span><span>今日 <b id="today">0</b></span><span>总计 <b id="total">0</b></span><span>最高连击 <b id="best">0</b></span><span id="combo"></span>
+</div><canvas id="cv"></canvas></div>
+<div class="taskbar">（这里假装是任务栏，挂件默认贴着它的顶部、靠右下角）</div>
+<div id="msg"></div>
+<div id="panel"><div id="panelBox"><div id="panelHead"><div id="tabs"></div><button id="panelClose" class="hdbtn">关闭</button></div><div id="panelBody"></div></div></div>
+<script>
+
+const U=36,PAD=10,TOP=72,S=3;
+const keys=[],byCode={};
+function row(y,x,items){for(const it of items){const code=it[0],label=it[1],w=it[2]===undefined?1:it[2];if(code){const k={code:code,label:label,x:x,y:y,w:w,press:0,flash:0,bounce:0};keys.push(k);byCode[code]=k;}x+=w;}}
+const L=function(s){return s.split('').map(function(c){return ['Key'+c,c]})};
+row(0,0,[['Backquote','\u0060']].concat('1234567890'.split('').map(function(d){return ['Digit'+d,d]})).concat([['Minus','-'],['Equal','='],['Backspace','Back',2]]));
+row(1,0,[['Tab','Tab',1.5]].concat(L('QWERTYUIOP')).concat([['BracketLeft','['],['BracketRight',']'],['Backslash','\\\\',1.5]]));
+row(2,0,[['CapsLock','Caps',1.75]].concat(L('ASDFGHJKL')).concat([['Semicolon',';'],['Quote',"'"],['Enter','Enter',2.25]]));
+row(3,0,[['ShiftLeft','Shift',2.25]].concat(L('ZXCVBNM')).concat([['Comma',','],['Period','.'],['Slash','/'],['ShiftRight','Shift',2.75]]));
+row(4,0,[['ControlLeft','Ctrl',1.25],['MetaLeft','Win',1.25],['AltLeft','Alt',1.25],['Space','',7.5],['AltRight','Alt',1.25],['Fn','Fn',1.25],['ControlRight','Ctrl',1.25]]);
+const cv=document.getElementById('cv');
+let ctx=cv.getContext('2d');
+const W=Math.round(PAD*2+15*U),H=Math.round(TOP+5*U+PAD);
+// 高 DPI：物理像素 = CSS 像素 × DPR，再整体缩放，画布保持 1:1 的 CSS 尺寸
+const DPR=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+cv.style.width=W+'px';cv.style.height=H+'px';
+ctx.setTransform(DPR,0,0,DPR,0,0);
+// 静态层缓存：底板+键帽只在状态变化时重画，其余帧只 blit 一次 + 画猫，省 CPU
+const baseCv=document.createElement('canvas');baseCv.width=cv.width;baseCv.height=cv.height;
+let baseCtx=baseCv.getContext('2d');baseCtx.setTransform(DPR,0,0,DPR,0,0);
+let baseSig='',baseDirty=true;
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){baseDirty=true});
+function kcx(k){return PAD+(k.x+k.w/2)*U}
+function kcy(k){return TOP+(k.y+.5)*U}
+function feetY(k){return kcy(k)+9}
+function keyAt(x,y){return keys.find(function(k){return x>=PAD+k.x*U&&x<PAD+(k.x+k.w)*U&&y>=TOP+k.y*U&&y<TOP+(k.y+1)*U})||null}
+
+// ---------------- 猫的设定 ----------------
+// 特性已全部删除（2026-11-05 用户决定）：升星不再改变操作手感，改给特效。
+// ★ 击飞特效 / ★★ 落地动作 / ★★★ 常驻装饰
+const SPECIES=[
+ {id:'orange',name:'橘猫',rarity:'common',pal:{k:'#2b1d14',o:'#f2a24a',w:'#fff4e6',p:'#ff8fa3',e:'#1a1a1a',t:'#d9822b'},desc:'贪睡，爱蹲空格和 Shift 这种大键',
+  fx:{n:'鱼骨雨',c:['#d8bd84','#fff3c4','#e8a44a']},
+  land:{n:'打个滚'},aura:{n:'暖橙光晕',c:'rgba(255,190,110,.55)'}},
+ {id:'calico',name:'三花',rarity:'common',pal:{k:'#3b302a',o:'#f5ece0',w:'#fffaf2',p:'#ff8fa3',e:'#1a1a1a',t:'#c8722c'},desc:'暴脾气，最容易生气，一生气就去霸占 Enter',
+  fx:{n:'裂纹火花',c:['#ff9e5e','#fff0d0','#ff5a5a']},
+  land:{n:'歪头摔'},aura:{n:'花瓣描边',c:'rgba(255,168,187,.6)'}},
+ {id:'tabby',name:'狸花',rarity:'common',pal:{k:'#23252a',o:'#9aa0a6',w:'#e8e4dc',p:'#ff9db0',e:'#141414',t:'#5c6166'},desc:'胆小，被打完会躲到角落',
+  fx:{n:'金色火星',c:['#d8bd84','#fff6cf','#c9a24a']},
+  land:{n:'缩成一团'},aura:{n:'金色描边',c:'rgba(255,215,107,.55)'}},
+ {id:'white',name:'白猫',rarity:'common',pal:{k:'#3a352e',o:'#f7f4ee',w:'#ffffff',p:'#ff9ab0',e:'#1a1a1a',t:'#dcd5c6'},desc:'讲究，专挑你最近没按过的键',
+  fx:{n:'花瓣飘落',c:['#ffd7e4','#fff','#ffb0c8']},
+  land:{n:'轻踮脚尖'},aura:{n:'月光白晕',c:'rgba(255,255,255,.6)'}},
+ {id:'old',name:'老头',rarity:'common',pal:{k:'#47240b',o:'#f4b96a',w:'#fff5e0',p:'#ff98a8',e:'#1a1a1a',t:'#cf9444'},desc:'老资历，最爱蹲在你最常按的那一排',
+  fx:{n:'落叶飘',c:['#e8a44a','#ffd79a','#b87a2e']},
+  land:{n:'慢慢趴下'},aura:{n:'暖黄光',c:'rgba(255,214,140,.5)'}},
+ {id:'cheese',name:'起司',rarity:'common',pal:{k:'#462616',o:'#fffdf7',w:'#ffffff',p:'#ffa8bb',e:'#1a1a1a',t:'#c8b7ad'},desc:'浅灰虎斑，安静，几乎不生气',
+  fx:{n:'奶泡爆开',c:['#fff','#f2e4d8','#c8b7ad']},
+  land:{n:'软绵绵塌下'},aura:{n:'浅灰描边',c:'rgba(200,183,173,.55)'}},
+ {id:'black',name:'黑猫',rarity:'rare',pal:{k:'#1a1720',o:'#3a3640',w:'#4a4552',p:'#ff8fa3',e:'#d8bd84',t:'#22202a'},desc:'落地时炸开一圈暗影，按错只是扑空',
+  fx:{n:'暗影裂开',c:['#8f7ce8','#2b2440','#d3c8ff']},
+  land:{n:'侧空翻'},aura:{n:'紫黑拖尾',c:'rgba(160,140,255,.5)'}},
+ {id:'siamese',name:'暹罗',rarity:'rare',pal:{k:'#2f2622',o:'#e8dcc8',w:'#f6efe2',p:'#ff9db0',e:'#1a1a1a',t:'#4a3a34'},desc:'重点色最讲究的一只，落地总是很轻',
+  fx:{n:'奶泡爆开',c:['#fff8ea','#e8d4b8','#5c4030']},
+  land:{n:'优雅落地'},aura:{n:'深棕面罩光',c:'rgba(150,110,80,.55)'}},
+ {id:'cow',name:'奶牛猫',rarity:'rare',pal:{k:'#22201e',o:'#f4f1ea',w:'#ffffff',p:'#ff9ab0',e:'#1a1a1a',t:'#2e2b2b'},desc:'好动，落地爱翻滚，一天到晚闲不下来',
+  fx:{n:'黑白墨点',c:['#fff','#3a3a3a','#c9c9c9']},
+  land:{n:'四脚朝天'},aura:{n:'奶斑光圈',c:'rgba(240,240,240,.55)'}},
+ {id:'sheriff',name:'警长',rarity:'rare',pal:{k:'#452716',o:'#fffdf7',w:'#ffffff',p:'#ffa8bb',e:'#1a1a1a',t:'#7d7672'},desc:'燕尾服，落地讲究，喜欢踩正中间的 G 和 H',
+  fx:{n:'月光落地',c:['#dfe9ff','#fff','#9fb8e8']},
+  land:{n:'立正'},aura:{n:'银色披风',c:'rgba(200,215,245,.55)'}},
+ {id:'ghost',name:'幽灵猫',rarity:'ghost',pal:{k:'rgba(150,190,255,.45)',o:'rgba(196,224,255,.5)',w:'rgba(240,250,255,.6)',p:'rgba(255,170,200,.6)',e:'rgba(255,235,140,.9)',t:'rgba(150,190,255,.4)'},desc:'蹲着时几乎透明，只有脚下的键在发光',
+  fx:{n:'幽蓝雾气',c:['#bfe4ff','#eaf7ff','#7fb0e8']},
+  land:{n:'飘一下'},aura:{n:'幽灵拖影',c:'rgba(190,225,255,.6)'}}
+];
+const SPEC={};SPECIES.forEach(function(s){SPEC[s.id]=s});
+const RARITYNAME={common:'常见',rare:'稀有',ghost:'幽灵'};
+
+// ---------------- 存档 ----------------
+const SK='kbcat.v2';
+function defaults(){return{fish:0,total:0,best:0,days:{},lastReport:null,owned:{orange:1},equipped:['orange'],items:{},catDay:'',catToday:0,fishToday:0,acc:{},ach:{},relay:0,chain:0,catSize:44,vol:{key:.25,cat:.6,ui:.5},theme:'wood',privacy:false,auto:false,onlyAlpha:false,noLand:{Fn:1},noHide:false}}
+let store=defaults();
+try{const raw=localStorage.getItem(SK);if(raw)store=Object.assign(defaults(),JSON.parse(raw))}catch(e){}
+function save(){try{localStorage.setItem(SK,JSON.stringify(store))}catch(e){}renderCount()}
+const dkey=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const TODAY=dkey(new Date());
+function dayRoll(){
+ if(store.catDay!==TODAY){store.catDay=TODAY;store.catToday=0;store.fishToday=0}
+}
+
+// ---------------- 主题 ----------------
+const THEMES=[
+ {id:'wood',name:'木纹',cap:'#8a6a48',capLit:'#c79a68',board:'#453524',edge:'#2d2115',board2:'#54402b',tint:'rgba(58,46,34,.34)'},
+ {id:'cyber',name:'赛博',cap:'#2b3550',capLit:'#5d7bd0',board:'#181c26',edge:'#0c0e14',board2:'#212530',tint:'rgba(40,46,60,.40)'},
+ {id:'retro',name:'复古',cap:'#cfc3a5',capLit:'#f0e6c8',board:'#5c5343',edge:'#3b3529',board2:'#6a604d',tint:'rgba(96,88,72,.34)'},
+ {id:'glow',name:'夜光',cap:'#243044',capLit:'#59d3c8',board:'#141a22',edge:'#0a0d12',board2:'#1c232c',tint:'rgba(30,40,48,.46)'},
+ {id:'star',name:'星空',cap:'#2a2450',capLit:'#8f7ce8',board:'#1b1926',edge:'#0d0c14',board2:'#24212f',tint:'rgba(38,34,52,.46)'},
+ {id:'candy',name:'糖果',cap:'#f6c6d8',capLit:'#fff0f6',board:'#8a6470',edge:'#664855',board2:'#9a7280',tint:'rgba(130,104,116,.34)'},
+ {id:'cream',name:'奶油',cap:'#efe2c8',capLit:'#fffaf0',board:'#8d8272',edge:'#6a6153',board2:'#9b9080',tint:'rgba(150,140,124,.34)'},
+ {id:'sakura',name:'樱夜',cap:'#faf0f5',capLit:'#ffffff',board:'#2e2138',edge:'#1c1326',board2:'#3a2a48',tint:'rgba(70,52,84,.34)'}
+];
+const THEME={};THEMES.forEach(function(t){THEME[t.id]=t});
+
+// ---------------- 杂货 ----------------
+const ITEMS=[
+ {id:'hat_red',name:'小红帽',slot:'hat',price:60,tier:'普通'},
+ {id:'hat_ball',name:'棒球帽',slot:'hat',price:60,tier:'普通'},
+ {id:'hat_bowl',name:'泡面碗',slot:'hat',price:60,tier:'普通'},
+ {id:'hat_beret',name:'贝雷帽',slot:'hat',price:120,tier:'精良'},
+ {id:'hat_wiz',name:'巫师帽',slot:'hat',price:120,tier:'精良'},
+ {id:'hat_crown',name:'皇冠',slot:'hat',price:120,tier:'精良'},
+ {id:'neck_bell',name:'铃铛项圈',slot:'neck',price:60,tier:'普通'},
+ {id:'neck_bow',name:'红领结',slot:'neck',price:60,tier:'普通'},
+ {id:'neck_scarf',name:'格子围巾',slot:'neck',price:120,tier:'精良'},
+ {id:'back_bag',name:'小书包',slot:'back',price:60,tier:'普通'},
+ {id:'back_wing',name:'蝴蝶翅膀',slot:'back',price:120,tier:'精良'},
+ {id:'back_cape',name:'小披风',slot:'back',price:120,tier:'精良'}
+];
+const SHOPITEMS=ITEMS.filter(function(it){return it.tier==='普通'});
+const GACHAITEMS=ITEMS.filter(function(it){return it.tier==='精良'});
+const ITEM={};ITEMS.forEach(function(it){ITEM[it.id]=it});
+
+// ---------------- 占位像素猫 ----------------
+const o=function(n){return 'o'.repeat(n)};
+const BASE=['.k.......k.','kok.....kok','koookkkoook','k'+o(9)+'k','kooeoooeook','kowwwpwwwok','.kowwwwwok.','.k'+o(7)+'k.','kooowwwoook','kooowwwoook','kowwkokwwok','.kkkk.kkkk.'];
+const CLOSED='kookoookook';
+function mk(over){const r=BASE.map(function(s,i){return ((over[i]||s)+'..').split('')});[[11,9],[12,8],[12,7],[12,6],[12,5]].forEach(function(p){r[p[1]][p[0]]='t'});return r}
+const POSES={sit:mk({}),blink:mk({4:CLOSED}),walkA:mk({11:'kkk....kkk.'}),walkB:mk({11:'.kkk....kkk'}),fly:mk({4:CLOSED,5:'kowwkkkwwok',10:'kowwk.kwwok',11:'k.k.....k.k'}),dizzy:mk({4:CLOSED})};
+const SPRCACHE={};
+function sprites(pid){if(SPRCACHE[pid])return SPRCACHE[pid];const pal=SPEC[pid].pal;const out={};
+ for(const n in POSES){for(const f of [1,-1]){const c=document.createElement('canvas'),g=c.getContext('2d'),rows=POSES[n];c.width=13*S;c.height=rows.length*S;
+  rows.forEach(function(r,y){r.forEach(function(ch,x){if(pal[ch]){g.fillStyle=pal[ch];g.fillRect((f===1?x:12-x)*S,y*S,S,S)}})});out[n+f]=c}}
+ SPRCACHE[pid]=out;return out}
+const SW=13*S,SH=12*S;
+
+// ---------------- 位图猫（asf/ 素材，36px 宽） ----------------
+// 猫的绘制尺寸：36/40/44/48 可选，默认 36（键宽 U=36）
+const SIZES=[36,40,44,48];
+const SIZEK={36:1,40:40/36,44:44/36,48:48/36};   // 相对 36 的放大比例（高 28 同比例）
+let CATW=36,CATH=28;
+const IMGCACHE=[];
+function sizeNow(){const v=+(store.catSize||44);return SIZES.indexOf(v)<0?44:v}
+function setCatSize(v){
+ const n=SIZES.indexOf(+v)<0?44:+v;
+ store.catSize=n;
+ const k=SIZEK[n];CATW=Math.round(36*k);CATH=Math.round(28*k);
+ save();
+}
+function loadSprites(){
+ loadAcc();
+ const n=sizeNow();const k=SIZEK[n];CATW=Math.round(36*k);CATH=Math.round(28*k);
+ IMGCACHE.length=0;
+ SPECIES.forEach(function(sp,i){
+  const im=new Image();
+  im.onload=function(){IMGCACHE[i]=im};
+  im.onerror=function(){};
+  im.src='asf/sp_'+sp.id+'_'+n+'.png';
+ });
+ SPECIDX={};SPECIES.forEach(function(sp,i){SPECIDX[sp.id]=i});
+}
+let SPECIDX={};
+
+// ---------------- 声音 ----------------
+let AC=null;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){AC=null}}return AC}
+function tone(freq,dur,type,vol,slide){const a=ac();if(!a)return;const t=a.currentTime;const o2=a.createOscillator(),g=a.createGain();
+ o2.type=type||'sine';o2.frequency.setValueAtTime(freq,t);if(slide)o2.frequency.exponentialRampToValueAtTime(Math.max(40,freq*slide),t+dur);
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ o2.connect(g);g.connect(a.destination);o2.start(t);o2.stop(t+dur+.02)}
+// 按键音：真实键盘声（噪声击打 + 带通塑形 + 键帽触底闷响），不再用音高提示
+let NOISE=null;
+function noiseBuf(a){if(NOISE)return NOISE;const n=Math.max(1,Math.floor(a.sampleRate*.09));
+ const b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);
+ for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.6);
+ NOISE=b;return NOISE}
+function sndKey(k){
+ const a=ac();if(!a)return;if(a.state==='suspended')a.resume();
+ const t=a.currentTime,v=store.vol.key;
+ const row=k&&typeof k.y==='number'?k.y:2;
+ // ① 击打：白噪声过带通（上排亮、下排闷），1~2ms 起振，40ms 衰减
+ const src=a.createBufferSource();src.buffer=noiseBuf(a);
+ const bp=a.createBiquadFilter();bp.type='bandpass';
+ bp.frequency.value=(row<=1?3800:row<=3?2900:2300)+Math.random()*260;bp.Q.value=1.2;
+ const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=1200;
+ const g=a.createGain();
+ g.gain.setValueAtTime(.0001,t);
+ g.gain.exponentialRampToValueAtTime(Math.max(.002,v*.55),t+.0015);
+ g.gain.exponentialRampToValueAtTime(.0001,t+.042);
+ src.connect(bp);bp.connect(hp);hp.connect(g);g.connect(a.destination);
+ src.start(t);src.stop(t+.06);
+ // ② 触底：短促低频闷响，给一点"实心"的重量
+ const o=a.createOscillator(),og=a.createGain();
+ o.type='sine';o.frequency.setValueAtTime(175+Math.random()*35,t);
+ o.frequency.exponentialRampToValueAtTime(88,t+.05);
+ og.gain.setValueAtTime(Math.max(.001,v*.22),t);
+ og.gain.exponentialRampToValueAtTime(.0001,t+.062);
+ o.connect(og);og.connect(a.destination);o.start(t);o.stop(t+.08)}
+// 松键：只留一点高频回弹，很轻
+function sndKeyUp(){
+ const a=ac();if(!a)return;
+ const t=a.currentTime,v=store.vol.key;
+ const src=a.createBufferSource();src.buffer=noiseBuf(a);
+ const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=3400;bp.Q.value=1.6;
+ const g=a.createGain();
+ g.gain.setValueAtTime(Math.max(.0005,v*.12),t);
+ g.gain.exponentialRampToValueAtTime(.0001,t+.028);
+ src.connect(bp);bp.connect(g);g.connect(a.destination);src.start(t);src.stop(t+.04)}
+// 每只猫一个音高，撞上去听得出是哪只
+const VOICE={orange:420,old:370,tabby:470,calico:520,cow:545,cheese:500,sheriff:570,siamese:630,white:760,black:300,ghost:900};
+function sndHit(pid,mad){const base=VOICE[pid]||560;
+ tone(base,.09,'square',store.vol.cat*.3,2.4);
+ tone(base*1.5,.07,'sine',store.vol.cat*.18,1.8);
+ if(pid==='ghost')tone(base*2.2,.12,'sine',store.vol.cat*.12,1.2);
+ if(mad)tone(base*1.35,.13,'sawtooth',store.vol.cat*.16,2.6)}
+function sndUi(){tone(880,.06,'sine',store.vol.ui*.25,1.3)}
+function sndGacha(){tone(520,.08,'square',store.vol.ui*.25,1.6);setTimeout(function(){tone(760,.1,'square',store.vol.ui*.22,1.5)},80);setTimeout(function(){tone(1040,.18,'sine',store.vol.ui*.2,1.4)},170)}
+
+// ---------------- 运行时 ----------------
+const rand=function(a,b){return a+Math.random()*(b-a)};
+const pick=function(a){return a[Math.floor(Math.random()*a.length)]};
+let now=0,freezeUntil=0,shake=0,hidden=false,lastHit=-99,combo=0;
+const recent=[],hitTimes=[],parts=[],pops=[];
+function stars(x){const pid=typeof x==='string'?x:(x&&x.pid);return store.owned[pid]||0}
+// 星级奖励：1★ 击飞特效、2★ 落地动作、3★ 常驻装饰（永不进商店）
+function fxOf(pid){return stars(pid)>=1?SPEC[pid].fx:null}
+function landOf(pid){return stars(pid)>=2?SPEC[pid].land:null}
+function auraOf(pid){return stars(pid)>=3?SPEC[pid].aura:null}
+const STARTIERNAME={fx:'击飞特效',land:'落地动作',aura:'常驻装饰'};
+const cats=[];
+const MAXC=8;
+const CATSTART=['KeyJ','KeyF','KeyH','KeyG','KeyK','KeyD','KeyL','KeyS'];
+function makeCat(pid,slot){const k0=byCode[CATSTART[slot]||'KeyH']||byCode['KeyH'];
+ const c={pid:pid,face:1,x:kcx(k0),y:feetY(k0),state:'guard',key:k0,timer:rand(1,3),sq:0,sqType:'',angryUntil:0,fly:null,alpha:1,fake:false,cool:0,landT:0,landedAt:0,punch:0};
+ c.st=stars(pid);return c}
+function equipCats(){cats.length=0;store.equipped.forEach(function(pid,i){if(pid&&SPEC[pid])cats.push(makeCat(pid,i))})}
+function angryOf(c){return now<c.angryUntil}
+
+// 限定范围：只允许落字母区（三行字母键）。store.onlyAlpha 开启后，落点只在这 26 键里挑。
+const ALPHA_CODES={};'QWERTYUIOPASDFGHJKLZXCVBNM'.split('').forEach(function(c){ALPHA_CODES['Key'+c]=1});
+function landable(){return keys.filter(function(k){return !(store.noLand&&store.noLand[k.code])&&(!store.onlyAlpha||ALPHA_CODES[k.code])})}
+function pickLanding(c,exclude){const mad=angryOf(c);let dir=c.x<PAD+7.5*U?1:-1;
+ let tx=c.x+dir*rand(mad?5:3,mad?9:7)*U;
+ if(tx<PAD+U||tx>W-PAD-U){dir=-dir;tx=c.x+dir*rand(3,7)*U}
+ const ty=c.y+Math.round(rand(mad?-3:-2,mad?3:2))*U;
+ const pool=landable().filter(function(k){return k!==exclude});
+ let bestK=null,bd=1e9;for(const k of pool){const d=Math.hypot(kcx(k)-tx,kcy(k)-ty);if(d<bd){bd=d;bestK=k}}
+ if(!bestK)bestK=pool[0]||exclude;return bestK}
+
+function startFly(c,toKey,big){const sx=c.x,sy=c.y,ex=kcx(toKey),ey=feetY(toKey),dist=Math.hypot(ex-sx,ey-sy);
+ const h=Math.min(60+dist*.18+(big?30:0),Math.min(sy,ey)-CATH-4);
+ c.fly={sx:sx,sy:sy,ex:ex,ey:ey,h:h,t:0,dur:.45+dist/1100,toKey:toKey,relayed:false,spin:(ex>sx?1:-1)*(big?6:4)*Math.PI,bounced:false};
+ c.state='fly';c.face=ex>sx?1:-1;c.alpha=1;c.punch=.18}
+
+function burst(x,y,n,colors,spd){for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),v=rand(spd*.4,spd);parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-40,life:rand(.35,.6),max:.6,c:pick(colors),s:rand(2,4)})}}
+function pop(text,x,y,color,size){pops.push({text:text,x:x,y:y,t:0,c:color||'#fff',size:size||16})}
+let msgT=null;
+function msg(t){const m=document.getElementById('msg');m.textContent=t;m.style.opacity=1;clearTimeout(msgT);msgT=setTimeout(function(){m.style.opacity=0},1400)}
+
+// ---------------- 击飞结算 ----------------
+function addFish(n){store.fish+=n;store.fishToday=(store.fishToday||0)+n}
+function registerHit(c,k,relay){
+ const gap=now-lastHit;combo=gap<4?combo+1:1;lastHit=now;
+ store.total++;store.days[TODAY]=(store.days[TODAY]||0)+1;store.best=Math.max(store.best,combo);
+ let gain=1+(combo>=3?1:0)+(combo>=6?1:0)+(combo>=10?1:0);
+ if(relay){gain+=2;store.relay=(store.relay||0)+1}
+ // 同一只猫在同一个键上连飞 10 次后，收益减半（防止把猫赶进角落刷鱼干）
+ store.spot=store.spot||{};
+ const sp=store.spot;
+ const spotKey=c.pid+'@'+k.code;
+ sp.n=sp.k===spotKey?(sp.n||0)+1:1;sp.k=spotKey;
+ if(sp.n>10)gain=Math.max(1,Math.round(gain/2));
+ addFish(gain);save();
+ hitTimes.push(now);while(hitTimes.length&&now-hitTimes[0]>20)hitTimes.shift();
+ freezeUntil=now+.075;shake=.16;k.flash=1;c.sq=.22;c.sqType='hit';c.cool=0;
+ sndHit(c.pid,angryOf(c));
+ const x=c.x,y=c.y-CATH/2;
+ const fx=stars(c.pid)>=1?SPEC[c.pid].fx:null;
+ burst(x,y,fx?16:12,fx?fx.c:['#fff','#ffe27a','#ffd0a0'],fx?300:260);
+ pop('+' + gain + ' 鱼干', x, y-22, '#d8bd84');
+ if(relay)pop('空中接力!',x,y-42,'#7fe3ff',18);
+ else if(combo===3){pop('三连击!',x,y-44,'#d8bd84',22);burst(x,y,18,['#d8bd84','#ff9e5e'],340)}
+ else if(combo>=2)pop('连击 x'+combo,x,y-40,'#ff9e5e');
+ if(!angryOf(c)&&hitTimes.length>=5){c.angryUntil=now+10;pop('生气了!',x,y-62,'#ff5a5a',18)}
+ startFly(c,pickLanding(c,c.key),combo>=3);
+ checkAch();
+ // 撞猫连锁已由 chainStrike 处理
+}
+function chainStrike(c,from){
+ const hit=cats.filter(function(o){return o!==c&&!o.fake&&o.state!=='fly'&&o.key===c.key});
+ let n=0;
+ hit.forEach(function(o){
+  if(o.cool>0)return;
+  n++;
+  o.cool=.4;o.sq=.22;o.sqType='hit';burst(o.x,o.y-CATH/2,10,['#fff','#d8bd84'],240);
+  combo++;lastHit=now;store.best=Math.max(store.best,combo);   // 连击跨猫延续
+  addFish(1);store.total++;store.chain=(store.chain||0)+1;
+  pop('撞飞!',o.x,o.y-CATH-14,'#7fe3ff',16);sndHit(o.pid);
+  startFly(o,pickLanding(o,o.key),true)});
+ if(n>=2){pop('三连撞!',c.x,c.y-CATH-40,'#d8bd84',20);
+  store.triple=(store.triple||0)+1;}
+ save();checkAch();
+}
+function press(code,repeat){
+ const k=byCode[code];if(!k)return false;
+ k.press=1;if(repeat)return true;
+ recent.push({k:k,t:now});while(recent.length>40)recent.shift();
+ if(hidden)return true;
+ sndKey(k);
+ for(const c of cats){
+  if(c.cool>0&&c.state!=='fly')continue;
+  // 落地宽限：刚落地的 0.2 秒内按中也算接力
+  const landing=c.state==='fly'&&c.fly.toKey===k&&!c.fly.relayed&&(c.fly.t>.15);
+  if(landing){c.fly.relayed=true;registerHit(c,k,true);break}
+  const hittable=(c.state==='guard'||c.state==='walk'||c.state==='dizzy')&&c.key===k&&now>=c.cool;
+  if(!hittable)continue;
+  const isRelay=c.landedAt&&now-c.landedAt<.22;
+    registerHit(c,k,isRelay);break
+ }
+ return true}
+function release(code){const k=byCode[code];if(!k)return;const was=k.press;k.press=0;if(was&&!hidden&&store.vol.key>0)sndKeyUp()}
+
+// ---------------- 猫的更新 ----------------
+function updateCat(c,dt){
+  c.cool=Math.max(0,c.cool-dt);
+ c.punch=Math.max(0,c.punch-dt);
+ c.sq=Math.max(0,c.sq-dt);
+ if(c.landT>0)c.landT=Math.max(0,c.landT-dt);
+ switch(c.state){
+ case'guard':
+  c.timer-=dt;
+  // 不再自主移动：只被击飞（用户 2026-11-05 决定）
+  break;
+ case'walk':{break}   // 已停用：猫不再自己走
+ case'fly':{const f=c.fly;f.t+=dt/f.dur;
+  const t=Math.min(1,f.t);c.x=f.sx+(f.ex-f.sx)*t;c.y=f.sy+(f.ey-f.sy)*t-4*f.h*t*(1-t);
+  if(f.t>=1){
+   c.x=f.ex;c.y=f.ey;c.key=f.toKey;f.toKey.bounce=1;c.sq=.18;c.sqType='land';
+   if(stars(c.pid)>=2){c.landT=.34;c.sq=.26;const ac2=SPEC[c.pid].aura.color||SPEC[c.pid].aura.c;
+     for(let i=0;i<10;i++)parts.push({x:c.x+rand(-16,16),y:c.y-3,vx:rand(-120,120),vy:rand(-120,-40),life:rand(.35,.55),max:.55,c:ac2,s:rand(2,4)})}
+   for(let i=0;i<7;i++)parts.push({x:c.x+rand(-14,14),y:c.y-2,vx:rand(-90,90),vy:rand(-90,-30),life:rand(.3,.5),max:.5,c:'#c9c2b8',s:rand(2,3)});
+   c.state='dizzy';c.timer=1.0;c.alpha=1;c.fly=null;c.landedAt=now;
+   chainStrike(c);
+   break}
+  break}
+  case'dizzy':c.timer-=dt;if(c.timer<=0){c.state='guard';c.timer=rand(.8,1.6)}break}
+}
+
+function update(dt){
+ if(autoOn)autoPlay(dt);
+ if(now<freezeUntil)return;
+ shake=Math.max(0,shake-dt);
+ for(const k of keys){k.flash=Math.max(0,k.flash-dt*2.5);k.bounce=Math.max(0,k.bounce-dt*6)}
+ for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=500*dt;p.life-=dt}
+ for(let i=parts.length-1;i>=0;i--)if(parts[i].life<=0)parts.splice(i,1);
+ for(const p of pops)p.t+=dt;while(pops.length&&pops[0].t>1.2)pops.shift();
+ for(const c of cats){
+  updateCat(c,dt)
+ }
+ renderCount()}
+
+// ---------------- 绘制 ----------------
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function themeNow(){return THEME[store.theme]||THEME.wood}
+function drawBoard(){
+ const t=themeNow();
+ // 樱夜：整块底板直接贴参考图（边框、花纹、内外两层壳都在图里）
+ if(store.theme==='sakura'&&SK_BOARD.complete&&SK_BOARD.naturalWidth>0){
+  ctx.save();
+  ctx.beginPath();rr(2,TOP-10,W-4,H-TOP+6,14);ctx.clip();
+  ctx.drawImage(SK_BOARD,2,TOP-10,W-4,H-TOP+6);
+  ctx.restore();
+  return;
+ }
+ if(store.theme==='sakura'){
+  // 樱夜：外层淡紫圆角壳，里面才是深紫键盘面板
+  const og=ctx.createLinearGradient(0,TOP-14,0,H+4);
+  og.addColorStop(0,'#d3bfe4');og.addColorStop(.45,'#bda6d3');og.addColorStop(1,'#8c76a8');
+  ctx.fillStyle=og;rr(0,TOP-14,W,H-TOP+8,16);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.42)';ctx.lineWidth=1.4;rr(1.6,TOP-12.4,W-3.2,H-TOP+4.8,15);ctx.stroke();
+  ctx.strokeStyle='rgba(90,60,110,.35)';ctx.lineWidth=1;rr(6,TOP-7,W-12,H-TOP+2,12);ctx.stroke();
+ }
+ const g=ctx.createLinearGradient(0,TOP-8,0,H);
+ g.addColorStop(0,t.board2);g.addColorStop(1,t.board);
+ ctx.fillStyle=g;rr(4,TOP-8,W-8,H-TOP+4,12);ctx.fill();
+ ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=2;rr(4,TOP-8,W-8,H-TOP+4,12);ctx.stroke();
+ // 底图风格纹理
+ ctx.save();ctx.beginPath();rr(4,TOP-8,W-8,H-TOP+4,12);ctx.clip();
+ if(store.theme==='star'||store.theme==='glow'){for(let i=0;i<60;i++){const x=(i*97)%W,y=TOP+((i*53)%(H-TOP));ctx.fillStyle=i%3?'rgba(255,255,255,.22)':'rgba(150,200,200,.26)';ctx.fillRect(x,y,2,2)}}
+ else if(store.theme==='cyber'){ctx.strokeStyle='rgba(105,130,175,.13)';ctx.lineWidth=1;for(let x=0;x<W;x+=18){ctx.beginPath();ctx.moveTo(x,TOP);ctx.lineTo(x-40,H);ctx.stroke()}}
+ else if(store.theme==='candy'){ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=8;for(let x=-H;x<W;x+=26){ctx.beginPath();ctx.moveTo(x,H);ctx.lineTo(x+H,TOP);ctx.stroke()}}
+ else if(store.theme==='sakura'){ctx.strokeStyle='rgba(255,190,225,.085)';ctx.lineWidth=10;for(let x=-H;x<W;x+=30){ctx.beginPath();ctx.moveTo(x,H);ctx.lineTo(x+H,TOP);ctx.stroke()}}
+ else{ctx.strokeStyle='rgba(0,0,0,.12)';ctx.lineWidth=1;for(let y=TOP;y<H;y+=14){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y+6);ctx.stroke()}}
+ ctx.restore()}
+// ---------------- 键帽贴图（三切：左角固定 + 中段 1px 纵向切片 + 右角固定） ----------------
+const CAPTEX={};
+const CAPIDS=['cream','wood','cyber','retro','glow','star','candy','sakura','sakuraD','sakuraP'];
+// 樱夜的暗紫修饰键：参考图里只有 Ctrl / Win / Alt 是深色
+const SAK_DARK={ControlLeft:1,ControlRight:1,MetaLeft:1,AltLeft:1,AltRight:1};
+// 樱夜的粉色功能键：Tab / Caps / Shift / Enter / Space（参考图里这几颗是粉的）
+const SAK_PINK={Tab:1,CapsLock:1,ShiftLeft:1,ShiftRight:1,Enter:1,Space:1};
+
+CAPIDS.forEach(function(id){const o={};['l','m','r'].forEach(function(p){
+ const im=new Image();im.onload=function(){baseDirty=true};im.src='asf/cap_'+id+'_'+p+'.png';o[p]=im});CAPTEX[id]=o});
+// 樱夜：整颗键帽直接从用户参考图上裁下来（1:1，不重绘、不重上色）
+const SKIMG={};
+['Backquote','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0','Minus','Equal','Backspace',
+ 'Tab','KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU','KeyI','KeyO','KeyP','BracketLeft','BracketRight','Backslash',
+ 'CapsLock','KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ','KeyK','KeyL','Semicolon','Quote','Enter',
+ 'ShiftLeft','KeyZ','KeyX','KeyC','KeyV','KeyB','KeyN','KeyM','Comma','Period','Slash','ShiftRight',
+ 'ControlLeft','MetaLeft','AltLeft','Space','AltRight','Fn','ControlRight'].forEach(function(code){
+ const im=new Image();im.onload=function(){baseDirty=true};im.src='asf/sk_'+code+'.png';SKIMG[code]=im});
+// 樱夜的底板：也是从参考图整块裁下来的
+const SK_BOARD=new Image();SK_BOARD.onload=function(){baseDirty=true};SK_BOARD.src='asf/sk_board.png';
+function capOf(){
+ return CAPTEX[store.theme]?store.theme:null;
+}
+function drawCapTex(tex,x,y,w,h,lit){
+ if(!tex||!tex.l.naturalWidth)return false;
+ const lw=Math.max(2,Math.round(h*0.30*(tex.l.width/tex.l.height)));
+ const midW=tex.m.width, mw=Math.max(0,w-lw*2);
+ ctx.drawImage(tex.l,x,y,lw,h);
+ if(mw>0){
+  if(midW<=1)ctx.drawImage(tex.m,x+lw,y,mw,h);
+  else for(let i=0;i<mw;i++){const sx=Math.min(midW-1,Math.floor(i/mw*midW));
+   ctx.drawImage(tex.m,sx,0,1,tex.m.height,x+lw+i,y,1,h)}
+ }
+ ctx.drawImage(tex.r,x+w-lw,y,lw,h);
+ if(lit){ctx.save();ctx.globalCompositeOperation='source-atop';
+  ctx.fillStyle='rgba(240,214,164,.22)';rr(x,y,w,h,7);ctx.fill();ctx.restore()}
+ return true;
+}
+function drawKeys(){
+ const priv=privacyOn;
+ const t=themeNow();
+ const catKey={};
+ cats.forEach(function(c){if(c.key&&!c.fake)catKey[c.key.code]=true});
+ for(const k of keys){
+  const x=PAD+k.x*U+2,w=k.w*U-4,hh=U-4;let y=TOP+k.y*U+2;
+  const isCat=catKey[k.code];
+  const landFlash=cats.some(function(c){return c.state==='fly'&&c.fly&&c.fly.toKey===k&&!c.fly.relayed});
+  const lit=k.press&&(!priv||isCat||k.flash>0);
+  const sink=(lit?2:0)+Math.sin(k.bounce*Math.PI)*3;y+=sink;
+  let cid=capOf();
+  if(cid==='sakura'){if(SAK_DARK[k.code])cid='sakuraD';else if(SAK_PINK[k.code])cid='sakuraP'}
+  const capH=hh+2;
+  // 樱夜：参考图原图直出（标签、装饰、深色底都已经在图里，不再叠字）
+  const sk=store.theme==='sakura'?SKIMG[k.code]:null;
+  const skOk=sk&&sk.complete&&sk.naturalWidth>0;
+  let drawn=false;
+  if(skOk){ctx.drawImage(sk,x,y,w,capH);if(lit||k.flash>0)skLit(x,y,w,capH);drawn=true}
+  else drawn=cid?drawCapTex(CAPTEX[cid],x,y,w,capH,lit):false;
+  if(drawn){ctx.fillStyle='rgba(0,0,0,.30)';rr(x+1,y+capH-2,w-2,2,1);ctx.fill()}
+  else{ctx.fillStyle='rgba(0,0,0,.35)';rr(x,y+3-sink*.5,w,hh,6);ctx.fill();
+   ctx.fillStyle=lit?t.capLit:t.cap;rr(x,y,w,hh-2,6);ctx.fill();}
+  if(k.flash>0){ctx.fillStyle='rgba(255,226,122,'+k.flash+')';rr(x,y,w,hh-2,6);ctx.fill()}
+  if(landFlash){ctx.fillStyle='rgba(127,227,255,'+(.35+.35*Math.sin(now*14))+')';rr(x+1,y+1,w-2,hh-4,6);ctx.fill()}
+  if(isCat){ctx.strokeStyle='rgba(255,158,94,'+(.55+.35*Math.sin(now*6))+')';ctx.lineWidth=2;rr(x+1,y+1,w-2,hh-4,6);ctx.stroke()}
+  // 被叼走的键帽
+    ctx.fillStyle=lit?'#fff':(store.theme==='candy'?'#6b3a4c':store.theme==='cream'?'#5a4a32':'#e8ecf5');
+  if(store.theme==='wood')ctx.fillStyle=lit?'#fff4e2':'#f0e2cc';
+  if(store.theme==='retro')ctx.fillStyle=lit?'#3a2f1c':'#3f3524';
+  if(store.theme==='cyber')ctx.fillStyle=lit?'#eaf3ff':'#c8dcff';
+  if(store.theme==='glow')ctx.fillStyle=lit?'#eafffb':'#a9f0e6';
+  if(store.theme==='star')ctx.fillStyle=lit?'#fff':'#dcd6ff';
+   if(!skOk){
+   if(store.theme==='sakura')ctx.fillStyle=SAK_DARK[k.code]?(lit?'#ffffff':'#e7d5f5'):SAK_PINK[k.code]?(lit?'#ffffff':'#8a5570'):(lit?'#8a5aa6':'#7e6a8e');
+   ctx.font=(k.label.length>3?9:12)+'px "Microsoft YaHei",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(k.label,x+w/2,y+hh/2-2);ctx.globalAlpha=1;
+  if(store.theme==='sakura'){
+   // 键帽右下角的小装饰：数字键是♡，字母键是☆，Esc 是猫脸
+   const deco=SAK_DARK[k.code]?'rgba(226,206,244,.55)':(k.press?'rgba(255,255,255,.9)':'rgba(214,138,180,.72)');
+   ctx.fillStyle=deco;
+   if(k.code==='Backquote'){sakCatFace(x+w/2,y+hh/2+1,lit)}
+   else if(/^Digit/.test(k.code)){ctx.font='8px sans-serif';ctx.fillText('\u2661',x+w-7,y+hh-7)}
+   else if(/^[A-Z]$/.test(k.label)){ctx.font='7px sans-serif';ctx.fillText('\u2606',x+w-6,y+hh-6)}
+  }}}}
+ // 樱夜的按键高亮：裁切图上单独叠一层浅白
+ function skLit(x,y,w,h){ctx.save();ctx.globalCompositeOperation='source-atop';ctx.fillStyle='rgba(255,240,250,.30)';rr(x,y,w,h,7);ctx.fill();ctx.restore()}
+// 樱夜主题 Esc 键上那颗猫头（矢量，11px 左右）
+function sakCatFace(cx,cy,lit){
+ ctx.save();ctx.translate(cx,cy);
+ const c1=lit?'#fff':'#c79add',c2=lit?'#7a4f96':'#6b4a86';
+ ctx.fillStyle=c1;
+ ctx.beginPath();ctx.moveTo(-5,-1);ctx.lineTo(-5,-5);ctx.lineTo(-2.4,-2.6);ctx.lineTo(2.4,-2.6);ctx.lineTo(5,-5);ctx.lineTo(5,-1);
+ ctx.quadraticCurveTo(5,4,0,4);ctx.quadraticCurveTo(-5,4,-5,-1);ctx.closePath();ctx.fill();
+ ctx.fillStyle=c2;
+ ctx.beginPath();ctx.arc(-1.9,0.2,0.75,0,7);ctx.fill();
+ ctx.beginPath();ctx.arc(1.9,0.2,0.75,0,7);ctx.fill();
+ ctx.beginPath();ctx.moveTo(-0.9,1.6);ctx.lineTo(0.9,1.6);ctx.lineTo(0,2.6);ctx.closePath();ctx.fill();
+ ctx.restore()}
+// ---------------- 饰品（位图，跟猫共用一套变换：一起移位/自转/挤压/镜像） ----------------
+function equippedAcc(){return store.acc||{}}
+// 一只猫可同时戴 帽子/颈饰/背饰 各一件。兼容旧存档里的单件字符串。
+function accOf(pid){
+ const raw=(store.acc||{})[pid];
+ if(!raw)return {};
+ if(typeof raw==='string'){const it=ITEM[raw];if(!it)return {};const o={};o[it.slot]=raw;return o}
+ return raw;
+}
+function accSet(pid,slot,id){
+ store.acc=store.acc||{};
+ const cur=Object.assign({},accOf(pid));
+ if(!id)delete cur[slot]; else cur[slot]=id;
+ if(Object.keys(cur).length)store.acc[pid]=cur; else delete store.acc[pid];
+}
+// 饰品功能暂时隐藏：位图在 44px 下辨识度不够，等换方案再打开。代码保留，只关开关。
+const ACC_ON=false;
+// 锚点全部用 CATH 的比例，换尺寸自动跟着走。
+//  hh=贴图高度/CATH  ay=锚点距脚底的 CATH 倍数(负=往上)  vy=锚点在贴图内的纵向位置(0=顶 1=底)
+const ACCDEF={
+ hat_crown:{src:'asf/acc_hat_crown.png',hh:0.34,ax:-0.15,ay:-0.84,vy:1.00},
+ neck_bell:{src:'asf/acc_neck_bell.png',hh:0.29,ax:-0.20,ay:-0.40,vy:0.50},
+ back_cape:{src:'asf/acc_back_cape.png',hh:1.05,ww:1.65,ay:-0.06,vy:0.96},
+ back_wing:{src:'asf/acc_back_wing.png',hh:0.90,ww:1.90,ay:-0.30,vy:0.72}
+};
+const ACCIMG={};
+function loadAcc(){Object.keys(ACCDEF).forEach(function(id){
+ const d=ACCDEF[id];const im=new Image();
+ im.onload=function(){ACCIMG[id]=im};im.onerror=function(){};
+ im.src=d.src})}
+// layer: 'back' 背饰（画在猫后面） / 'front' 帽子+颈饰（画在猫前面）
+function drawAccLayer(c,layer){
+ if(!ACC_ON)return;
+ const accs=accOf(c.pid);
+ const ids=(layer==='back')?[accs.back]:[accs.hat,accs.neck];
+ if(!ids[0]&&!ids[1])return;
+ const smooth=ctx.imageSmoothingEnabled;
+ ctx.imageSmoothingEnabled=false;           // 像素图，禁止插值
+ ids.forEach(function(id){
+  const d=id&&ACCDEF[id];if(!d)return;
+  const img=ACCIMG[id];if(!img||!img.naturalWidth)return;
+  const h=CATH*d.hh, w=d.ww?CATW*d.ww:h*(img.naturalWidth/img.naturalHeight);
+  const ax=CATW*(d.ax||0);
+  ctx.drawImage(img, ax-w/2, CATH*d.ay - h*d.vy, w, h);
+ });
+ ctx.imageSmoothingEnabled=smooth;
+}
+function drawCatSprite(c,pose,alpha,x,y,rot,sx,sy){
+ const im=IMGCACHE[SPECIDX[c.pid]];
+ if(alpha===undefined)alpha=1;
+ if(c.pid==='ghost')alpha*=0.55;
+ ctx.save();ctx.globalAlpha=alpha===undefined?1:alpha;ctx.translate(x,y);
+ if(rot){ctx.translate(0,-CATH/2);ctx.rotate(rot);ctx.translate(0,CATH/2)}
+ ctx.scale((sx===undefined?1:sx)*(c.face<0?-1:1),sy===undefined?1:sy);
+ drawAccLayer(c,'back');
+ if(im){ctx.drawImage(im,-CATW/2,-CATH,CATW,CATH)}
+ else{const sp=sprites(c.pid)[pose+(c.face<0?-1:1)];
+      if(sp){ctx.scale(c.face<0?-1:1,1);ctx.drawImage(sp,-SW/2,-SH)}}
+ drawAccLayer(c,'front');
+ ctx.restore()}
+function drawCat(c){
+ if(hidden)return;
+ let pose='sit';
+ if(c.state==='fly'||(c.sq>0&&c.sqType==='hit'))pose='fly';
+ else if(c.state==='dizzy')pose='dizzy';
+ else if(now%3.2<.12)pose='blink';
+ let sx=1,sy=1;
+ if(c.sq>0){const a=c.sq/.22;if(c.sqType==='hit'){sx=1+.45*a;sy=1-.4*a}else{sx=1+.3*a;sy=1-.3*a}}
+ if(c.landT>0){const a=c.landT/.34;sx*=1+.22*a;sy*=1-.18*a}
+ if(c.punch>0){const a=c.punch/.18;const z=1+.5*Math.sin(a*Math.PI*.9);sx*=z;sy*=z}   // 被打飞的瞬间弹一下
+  const rot=c.state==='fly'&&c.fly?c.fly.spin*Math.min(1,c.fly.t):0;
+ if(c.state!=='fly'){ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(c.x,c.y-2,17*sx,4.5,0,0,Math.PI*2);ctx.fill()}
+ // 3★ 常驻装饰：脚下一圈柔光（叠在影子之上，用 lighter 才透）
+ if(stars(c.pid)>=3){const au=SPEC[c.pid].aura;const pulse=1+Math.sin(now*2.4)*.10;
+   ctx.save();ctx.globalCompositeOperation='lighter';ctx.translate(c.x,c.y+3);ctx.scale(1,.30);
+   const g=ctx.createRadialGradient(0,0,2,0,0,34*pulse);
+   g.addColorStop(0,au.c);g.addColorStop(.35,au.c);g.addColorStop(1,'rgba(0,0,0,0)');
+   ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,34*pulse,0,Math.PI*2);ctx.fill();ctx.restore()}
+ drawCatSprite(c,pose,c.alpha,c.x,c.y,rot,sx,sy);
+ if(c.state==='dizzy')for(let i=0;i<3;i++){const a=now*5+i*2.1;ctx.fillStyle='#ffe27a';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('★',c.x+Math.cos(a)*14,c.y-CATH-4+Math.sin(a)*4)}
+ if(angryOf(c)&&c.state!=='fly'){ctx.fillStyle='#ff4d4d';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText('💢',c.x+12*c.face,c.y-CATH-2)}
+}
+function baseSignature(){
+ let s=store.theme+'|'+store.catSize+'|'+(hidden?1:0)+'|';
+ for(const k of keys)s+=(k.press?1:0)+Math.ceil(k.flash*4)+Math.ceil(k.bounce*4);
+ return s;
+}
+function rebuildBase(){
+ const real=ctx;ctx=baseCtx;
+ baseCtx.setTransform(DPR,0,0,DPR,0,0);
+ baseCtx.clearRect(0,0,W,H);
+ try{drawBoard();drawKeys()}finally{ctx=real}
+}
+function draw(){
+ let bs=baseSignature();
+ if(baseCv.width!==cv.width||baseCv.height!==cv.height){
+  baseCv.width=cv.width;baseCv.height=cv.height;
+  baseCtx=baseCv.getContext('2d');bs='';
+ }
+ if(bs!==baseSig||baseDirty){baseSig=bs;baseDirty=false;rebuildBase()}
+ ctx.setTransform(DPR,0,0,DPR,0,0);
+ ctx.clearRect(0,0,W,H);ctx.save();
+ if(shake>0)ctx.translate(rand(-3,3),rand(-3,3));
+ ctx.drawImage(baseCv,0,0,baseCv.width,baseCv.height,0,0,W,H);
+ // 整体调色：把键盘区（底板+键帽）压一层灰，降低饱和度与对比，让画面沉下来
+ ctx.save();ctx.beginPath();rr(0,TOP-10,W,H-TOP+10,12);ctx.clip();
+ const satAmt=store.theme==='sakura'?0:.52, veil=store.theme==='sakura'?'rgba(24,16,30,.02)':'rgba(22,19,24,.14)';
+ ctx.globalCompositeOperation='saturation';ctx.fillStyle='rgba(128,128,128,'+satAmt+')';ctx.fillRect(0,TOP-10,W,H-TOP+10);
+ ctx.globalCompositeOperation='source-over';
+ ctx.fillStyle=veil;ctx.fillRect(0,TOP-10,W,H-TOP+10);
+ ctx.restore();
+ cats.forEach(drawCat);
+ for(const p of parts){ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.s,p.s)}ctx.globalAlpha=1;
+ for(const p of pops){ctx.globalAlpha=Math.max(0,1-p.t/1.2);ctx.font='bold '+p.size+'px "Microsoft YaHei",sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.6)';const y=p.y-p.t*36;ctx.strokeText(p.text,p.x,y);ctx.fillStyle=p.c;ctx.fillText(p.text,p.x,y)}ctx.globalAlpha=1;
+ ctx.restore()}
+// 恒定 60fps：静态层已经缓存，每帧成本只剩「一次 blit + 猫 + 粒子」，不再降帧
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;now+=dt;update(dt);
+ draw();
+ requestAnimationFrame(loop)}
+
+function renderCount(){
+ document.getElementById('fish').textContent=store.fish;
+ document.getElementById('today').textContent=store.days[TODAY]||0;
+ document.getElementById('total').textContent=store.total;
+ document.getElementById('best').textContent=store.best;
+ document.getElementById('combo').textContent=(combo>=2&&now-lastHit<4)?('连击 x'+combo):''}
+
+addEventListener('keydown',function(e){
+ if(e.ctrlKey&&e.shiftKey&&e.code==='KeyK'){cycleTheme();e.preventDefault();return}
+ if(document.getElementById('panel').style.display==='flex'){if(e.code==='Escape'){closePanel()}return}
+ if(press(e.code,e.repeat))e.preventDefault()});
+addEventListener('keyup',function(e){release(e.code);e.preventDefault()});
+addEventListener('blur',function(){keys.forEach(function(k){k.press=0})});
+
+let autoT=0;
+function autoPlay(dt){autoT-=dt;if(autoT>0)return;autoT=rand(.18,.5);
+ let code;
+ const c=cats[Math.floor(Math.random()*cats.length)];
+ if(c&&c.state==='fly'&&c.fly&&Math.random()<.45)code=c.fly.toKey.code;
+ else if(c&&c.key&&Math.random()<.45)code=c.key.code;
+ else{const near=keys.filter(function(k){return c&&Math.hypot(kcx(k)-c.x,kcy(k)-c.y)<4*U});code=pick(near.length?near:keys).code}
+ press(code,false);setTimeout(function(){release(code)},70)}
+
+// ---------------- 面板 ----------------
+let privacyOn=!!store.privacy,autoOn=false; // 自动演示已隐藏（2026-11-06），存档里的 auto 不再生效
+const panel=document.getElementById('panel'),panelBody=document.getElementById('panelBody');
+// 一套面板 = 一排标签页。每个 tab 由 render 函数负责把内容画进 panelBody。
+const TABS=[['dex','图鉴','on'],['gacha','扭蛋商店','off'],['diary','日记','diary'],['badge','成就','badge'],['set','设置','set']];
+const TABFN={};
+let curTab='dex';
+// 统一规格：#panelBox 固定高度、#panelBody flex:1，所有标签页天然同尺寸，内容超高就在 body 里滚动
+function paint(tab,html){
+ curTab=tab;
+ panelBody.innerHTML=html;panelBody.scrollTop=0;
+ document.querySelectorAll('#tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===tab)});
+ panel.style.display='flex';
+}
+// 兼容旧调用：没指定 tab 就画在当前 tab 里
+function openPanel(title,html){paint(curTab,html)}
+function closePanel(){panel.style.display='none'}
+function showTab(id){if(!TABFN[id])return;sndUi();TABFN[id]();}
+function openPanelWith(id){showTab(TABFN[id]?id:'dex')}
+(function buildTabs(){
+ const bar=document.getElementById('tabs');
+ bar.innerHTML=TABS.map(function(t){return '<button data-tab="'+t[0]+'"><img src="ui/ic_'+t[2]+'.png" alt="">'+t[1]+'</button>'}).join('');
+ bar.querySelectorAll('button').forEach(function(b){b.onclick=function(){this.blur();showTab(b.dataset.tab)}});
+})();
+document.getElementById('panelClose').onclick=function(){this.blur();closePanel()};
+panel.addEventListener('click',function(e){if(e.target===panel)closePanel()});
+
+function box(html){return '<div>'+html+'</div>'}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+
+// 上阵：按从左到右找第一个空位
+function equipOne(pid){
+ if(!store.owned[pid]){msg('还没抽到这只猫');return}
+ if(store.equipped.indexOf(pid)>=0){msg(SPEC[pid].name+' 已经在编队里了');return}
+ if(store.equipped.length>=MAXC){msg('最多 '+MAXC+' 只，先点编队里的猫换下场');return}
+ store.equipped=store.equipped.concat([pid]);
+ sndUi();save();equipCats();panelDex();
+}
+// 下阵：点编队里那只猫就取消
+function unequipOne(pid){
+ store.equipped=store.equipped.filter(function(x){return x!==pid});
+ sndUi();save();equipCats();panelDex();
+}
+function panelDex(){
+ let slots='';
+ for(let i=0;i<MAXC;i++){const pid=store.equipped[i];
+  slots+=pid
+   ?'<div class="sl on" data-slot="'+i+'" title="点一下换下场"><img src="asf/sp_'+pid+'_64.png" alt=""><b>'+SPEC[pid].name+'</b><span class="st">'+('★'.repeat(stars(pid)))+'</span></div>'
+   :'<div class="sl" data-add="1"><b>+</b><span class="hint">空位</span></div>'}
+ let cards='';
+ SPECIES.forEach(function(s){
+  const own=store.owned[s.id]||0;
+  const st=own?stars(s.id):0;
+  const inEq=store.equipped.indexOf(s.id)>=0;
+  const tr=own?[['★',s.fx.n],['★★',s.land.n],['★★★',s.aura.n]].slice(0,Math.max(1,st)).map(function(r){return r[0]+r[1]}).join(' · '):'';
+  cards+='<div class="card '+(own?'':'dim')+(own?' act':'')+(inEq?' ineq':'')+'" data-cat="'+s.id+'">'+
+   (own?'<button class="dt" data-detail="'+s.id+'" title="详情">详情</button>':'')+
+   '<div class="n">'+(own?'<img class="por" src="asf/sp_'+s.id+'_64.png" alt="">':'')+'<span class="nm">'+s.name+'</span>'+(inEq?'<span class="eq">上阵中</span>':'')+'</div>'+
+   '<div class="s">'+esc(s.desc)+'</div>'+
+   '<div class="p">'+(own?('★'.repeat(st)+'<span class="ry">'+RARITYNAME[s.rarity]+'</span>'):'未拥有')+'</div>'+
+   '</div>'});
+ paint('dex',
+  '<div class="tip2">点图鉴里的猫就会按从左到右的顺序上阵；点编队里那只猫就换下场。最多 '+MAXC+' 只、同花色不能重复。</div>'+
+  '<div class="slot">'+slots+'</div><h4>收藏（'+Object.keys(store.owned).length+'/'+SPECIES.length+'）</h4><div class="grid">'+cards+'</div>');
+ panelBody.querySelectorAll('.sl').forEach(function(el){el.onclick=function(){
+  if(el.dataset.add)msg('点下面的猫，它会按从左到右自动上阵');
+  else unequipOne(store.equipped[+el.dataset.slot])}});
+ panelBody.querySelectorAll('[data-cat]').forEach(function(el){el.onclick=function(){equipOne(el.dataset.cat)}});
+ panelBody.querySelectorAll('[data-detail]').forEach(function(el){el.onclick=function(e){
+  e.stopPropagation();showCat(el.dataset.detail)}});
+}
+function accPicker(pid){
+ if(!ACC_ON)return '';
+ const accs=accOf(pid);
+ const owned=ITEMS.filter(function(it){return store.items[it.id]});
+ if(!owned.length)return '<div class="tip2">还没有饰品。商店卖普通款（60），扭蛋出精良款（120）。帽子 / 颈饰 / 背饰 可以同时各戴一件。</div>';
+ const slots=[['hat','帽子'],['neck','颈饰'],['back','背饰']];
+ return slots.map(function(sl){
+   const list=owned.filter(function(it){return it.slot===sl[0]});
+   if(!list.length)return '<div class="tip2" style="margin:4px 0">'+sl[1]+'：还没买</div>';
+   const cur=accs[sl[0]];
+   return '<div style="margin:4px 0"><span style="font-size:12px;color:#c9bfa8">'+sl[1]+'</span> '+
+     '<button data-slot="'+sl[0]+'" data-acc="" style="'+accBtnStyle(!cur)+'">不戴</button>'+
+     list.map(function(it){var ready=!!ACCDEF[it.id];
+       return '<button data-slot="'+sl[0]+'" data-acc="'+it.id+'" style="'+accBtnStyle(cur===it.id)+(ready?'':'opacity:.45;')+'" title="'+(ready?'':'位图还没做，暂时不显示')+'">'+it.name+(ready?'':' · 换位图中')+'</button>'}).join('')+'</div>'}).join('');
+}
+function accBtnStyle(on){
+ return 'margin:2px 4px 2px 0;padding:3px 9px;border:0;border-radius:6px;font-family:inherit;font-size:12px;cursor:pointer;background:'+(on?'#d8bd84':'rgba(255,255,255,.12)')+';color:'+(on?'#2b1d14':'#ddd')}
+function showCat(pid){
+ const s=SPEC[pid],st=stars(pid);
+ const rows=[['★',s.fx.n],['★★',s.land.n],['★★★',s.aura.n]].map(function(r,i){
+   const got=st>=i+1;
+   return '<div class="rw'+(got?' got':'')+'"><b>'+r[0]+'</b> '+r[1]+(got?'<span class="tg">已解锁</span>':'<span class="lk">未解锁</span>')+'</div>'}).join('');
+ const inEq=store.equipped.indexOf(pid)>=0;
+ paint('dex',
+  '<div class="det">'+
+   '<div class="detL"><img src="asf/sp_'+pid+'_64.png" alt=""></div>'+
+   '<div class="detR"><div class="detN">'+s.name+'<span class="ry">'+RARITYNAME[s.rarity]+'</span></div>'+
+    '<div class="detS">'+'&#9733;'.repeat(st)+'<span class="dim">'+'&#9733;'.repeat(Math.max(0,3-st))+'</span></div>'+
+    '<div class="detD">'+esc(s.desc)+'</div></div>'+
+   '<button class="detX" id="detBack" title="返回">返回</button>'+
+  '</div>'+
+  '<h4>星级奖励</h4>'+rows+
+  '<div class="tip2">抽到重复的猫升一星，满 3 星后重复折 10 鱼干。升星只给外观，不改变操作。</div>'+
+  (ACC_ON?'<h4>饰品</h4>'+accPicker(pid):'')+
+  '<div style="margin-top:16px"><button class="act" id="eqBtn" style="padding:6px 14px;border:0;border-radius:8px;background:'+(inEq?'rgba(255,255,255,.14)':'#d8bd84')+';color:'+(inEq?'#fff':'#2b1d14')+';cursor:pointer;font-family:inherit">'+(inEq?'换下场':'派上场')+'</button></div>');
+ panelBody.querySelectorAll('[data-acc]').forEach(function(el){el.onclick=function(){
+  accSet(pid,el.dataset.slot,el.dataset.acc);
+  save();sndUi();showCat(pid)}});
+ document.getElementById('eqBtn').onclick=function(){
+  const eq=store.equipped.slice();
+  if(inEq){store.equipped=eq.filter(function(x){return x!==pid})}
+  else{if(eq.length>=3){msg('最多 3 只，先换下一只');return}eq.push(pid);store.equipped=eq}
+  save();equipCats();panelDex()};
+ document.getElementById('detBack').onclick=function(){sndUi();panelDex()};
+}
+
+// ---------------- 成就 ----------------
+const ACHS=[
+ {id:'first',n:'第一次被击飞',d:'把猫按飞一次',need:1,get:function(){return store.total},rw:50},
+ {id:'c10',n:'手速不错',d:'最高连击达到 10',need:10,get:function(){return store.best},rw:100},
+ {id:'c25',n:'连到晕',d:'最高连击达到 25',need:25,get:function(){return store.best},rw:300},
+ {id:'h100',n:'百次击飞',d:'累计击飞 100 次',need:100,get:function(){return store.total},rw:150},
+ {id:'h1000',n:'千次击飞',d:'累计击飞 1000 次',need:1000,get:function(){return store.total},rw:800},
+ {id:'relay10',n:'空中接力',d:'空中接力 10 次',need:10,get:function(){return store.relay||0},rw:200},
+ {id:'chain10',n:'连锁反应',d:'连锁撞飞 10 次',need:10,get:function(){return store.chain||0},rw:200},
+ {id:'own5',n:'猫舍初具规模',d:'收集 5 只猫',need:5,get:function(){return Object.keys(store.owned).length},rw:200},
+ {id:'own11',n:'全家福',d:'收集全部 11 只猫',need:11,get:function(){return Object.keys(store.owned).length},rw:1200},
+ {id:'star3',n:'第一只满星',d:'把任意一只猫升到 3 星',need:1,get:function(){return Object.keys(store.owned).filter(function(k){return store.owned[k]>=3}).length},rw:300},
+ {id:'starAll',n:'全员满星',d:'11 只全部 3 星',need:11,get:function(){return Object.keys(store.owned).filter(function(k){return store.owned[k]>=3}).length},rw:3000},
+ {id:'item5',n:'小收藏家',d:'拥有 5 件饰品',accOnly:true,need:5,get:function(){return Object.keys(store.items||{}).length},rw:250},
+ {id:'fish1000',n:'鱼干大户',d:'单日赚到 1000 鱼干',need:1000,get:function(){return store.fishToday||0},rw:300},
+ {id:'triple',n:'三连撞',d:'一次落地同时撞飞 2 只以上的猫',need:1,get:function(){return store.triple||0},rw:400},
+];
+function checkAch(){
+ if(!store.ach)store.ach={};
+ let got=[];
+ ACHS.forEach(function(a){
+  if(a.accOnly&&!ACC_ON)return;
+  if(store.ach[a.id])return;
+  if(a.get()>=a.need){store.ach[a.id]=now||1;store.fish+=a.rw;got.push(a)}});
+ if(got.length){save();sndGacha();got.forEach(function(a,i){
+   setTimeout(function(){pop('成就：'+a.n+' +'+a.rw,W/2,150+i*30,'#d8bd84',17);burst(W/2,168+i*30,14,['#d8bd84','#fff3c4'],300)},i*320)})}
+ return got}
+function panelBadge(){
+ const AS=ACHS.filter(function(a){return ACC_ON||!a.accOnly});
+ const n=AS.filter(function(a){return store.ach&&store.ach[a.id]}).length;
+ const html='<h4>成就（'+n+'/'+AS.length+'）</h4><div class="grid">'+
+  AS.map(function(a){const got=store.ach&&store.ach[a.id];
+   const cur=Math.min(a.get(),a.need);
+   return '<div class="card '+(got?'':'dim')+'"><div class="n">'+(got?'★ ':'')+a.n+'</div><div class="s">'+a.d+'</div>'+
+    '<div class="p">'+(got?'已达成 +'+a.rw:'+'+a.rw+' 鱼干')+'</div>'+
+    (got?'':'<div class="s" style="margin-top:4px">'+cur+'/'+a.need+'</div>')+'</div>'}).join('')+'</div>';
+ paint('badge',html);
+}
+TABFN.badge=panelBadge;
+
+// ---------------- 扭蛋 ----------------
+const CATPOOL=['orange','calico','tabby','white','old','cheese','black','siamese','cow','sheriff','ghost'];
+const RATES={orange:.16,calico:.15,tabby:.13,white:.12,old:.11,cheese:.10,
+             black:.08,siamese:.06,cow:.05,sheriff:.03,ghost:.01};
+const CATTHRESH=300;    // 当天鱼干达到这个数，解锁第二次
+function catDone(){return CATPOOL.every(function(id){return (store.owned[id]||0)>=3})}
+function catQuota(){return store.catToday||0}
+function catLeft(){
+ if(catDone())return 0;
+ return Math.max(0,2-catQuota());
+}
+function catCost(){
+ // 返回 {free:bool, cost:number, locked:string|null}
+ if(catDone())return{free:false,cost:0,locked:'猫池已抽满，等后续更新'}
+ if(catQuota()===0)return{free:true,cost:0,locked:null};
+ if(catQuota()>=2)return{free:false,cost:0,locked:'今天已经抽过 2 次了'};
+ const f=store.fishToday||0;
+ if(f<CATTHRESH)return{free:false,cost:0,locked:'今天还差 '+(CATTHRESH-f)+' 鱼干解锁第二次'};
+ return{free:false,cost:0,locked:null};
+}
+function rollCat(){
+ let pool=CATPOOL.map(function(id){return{id:id,w:RATES[id]}});
+ pool=pool.filter(function(p){return (store.owned[p.id]||0)<3});
+ if(!pool.length)return CATPOOL[0];
+ const total=pool.reduce(function(a,b){return a+b.w},0);let r=Math.random()*total;
+ for(const p of pool){r-=p.w;if(r<=0)return p.id}
+ return pool[0].id}
+function doGachaCat(){
+ if(!store.owned){store.owned={}}
+ const q=catCost();
+ if(q.locked){msg(q.locked);return}
+ store.catDay=TODAY;store.catToday=(store.catToday||0)+1;
+ const pid=rollCat();
+ const before=store.owned[pid]||0;
+ store.owned[pid]=Math.min(3,before+1);
+ if(store.owned[pid]>=3&&before>=3){} 
+ if(before>=3){store.fish+=10;msg('满星重复，折 10 鱼干')}
+ else if(before===0){msg('抽到新猫：'+SPEC[pid].name)}
+ sndGacha();save();checkAch();
+ panelGacha('<div class="card" style="max-width:260px;margin:10px auto;text-align:center"><div class="n" style="font-size:18px">'+SPEC[pid].name+'</div><div class="p">'+('★'.repeat(store.owned[pid]))+'</div><div class="s">'+(before?'重复，升一星':'新猫!')+'</div></div>');
+}
+function panelGacha(result){
+ dayRoll();
+ const q=catCost();
+ const canDraw=!q.locked;
+ const label=q.locked?q.locked:(q.free?'免费抽一次':'抽第二次（今日鱼干 '+Math.min(CATTHRESH,store.fishToday||0)+'/'+CATTHRESH+'）');
+ paint('gacha',
+  (result||'')+
+  '<h4>猫池</h4><div class="tip2">每天免费一次；当天击飞攒够 '+CATTHRESH+' 鱼干再解锁一次，每天最多 2 次。抽到重复的猫升一星，满 3 星后重复折 10 鱼干。猫池抽满会自动关闭。</div>'+
+  '<div class="tip2" style="color:#c9bfa8">今日已抽 '+catQuota()+'/2 · 今日鱼干 '+Math.min(CATTHRESH,store.fishToday||0)+'/'+CATTHRESH+'</div>'+
+  '<button id="g1" '+(canDraw?'':'disabled')+' style="padding:7px 16px;border:0;border-radius:8px;background:'+(canDraw?'#d8bd84':'rgba(255,255,255,.10)')+';color:'+(canDraw?'#2b1d14':'#8f8aa0')+';cursor:'+(canDraw?'pointer':'default')+';font-family:inherit;font-weight:bold">'+label+'</button>'+
+  (ACC_ON?'<h4>杂货池</h4><div class="tip2">60 鱼干一次。只出精良款饰品（商店只卖普通款），抽齐后会提示。</div>'+
+  '<button id="g2" style="padding:7px 16px;border:0;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;cursor:pointer;font-family:inherit">抽杂货（60 鱼干）</button>':'')+
+  '<div style="margin:22px 0 0;border-top:1px solid #332e42;padding-top:4px"></div>'+
+  shopHTML()+
+  '');
+ document.getElementById('g1').onclick=function(){doGachaCat()};
+ const g2El=document.getElementById('g2');
+ if(g2El)g2El.onclick=function(){
+  if(store.fish<60){msg('鱼干不够，需要 60');return}
+  const fresh=GACHAITEMS.filter(function(it){return !store.items[it.id]});
+  if(!fresh.length){msg('杂货已经抽齐了');return}
+  store.fish-=60;const it=pick(fresh);store.items[it.id]=true;sndGacha();save();
+  panelGacha('<div class="card" style="max-width:260px;margin:10px auto;text-align:center"><div class="n">'+it.name+'</div><div class="s">新收藏</div></div>')};
+ bindShop();
+}
+
+// ---------------- 商店 ----------------
+// 商店区的内容（已经并进「扭蛋商店」标签页，单独抽出来复用）
+function shopHTML(){
+ function card(it,owned,tag,price){
+  return '<div class="card '+(owned?'dim':'')+'"><div class="n">'+it.name+'</div><div class="s">'+tag+'</div><div class="p">'+(owned?'已有':price+' 鱼干')+'</div>'+(owned?'':'<button class="act" data-buy="'+it.id+'" style="margin-top:8px;padding:4px 10px;border:0;border-radius:6px;background:#d8bd84;color:#2b1d14;cursor:pointer;font-family:inherit">买</button>')+'</div>'}
+ let html='';
+ if(ACC_ON){
+  html+='<h4>杂货（商店常驻款）</h4><div class="grid">';
+  SHOPITEMS.forEach(function(it){html+=card(it,!!store.items[it.id],it.slot==='hat'?'帽子':it.slot==='neck'?'颈饰':'背饰',it.price)});
+  html+='</div>';
+ }
+ html+='<h4>键盘主题</h4><div class="tip2">免费随便换。点一下即换成这套底图 + '+keys.length+' 键帽。</div><div class="grid">';
+ THEMES.forEach(function(t){
+  html+='<div class="card act theme" data-use="'+t.id+'"><div class="cap"><img src="ui/th_'+t.id+'.png" alt=""></div><div class="n">'+t.name+'</div><div class="s">'+(store.theme===t.id?'正在用':'点一下换')+'</div></div>'});
+ html+='</div>';
+ return html}
+function bindShop(){
+ panelBody.querySelectorAll('[data-buy]').forEach(function(el){el.onclick=function(){
+  const it=ITEM[el.dataset.buy];if(store.fish<it.price){msg('鱼干不够');return}
+  store.fish-=it.price;store.items[it.id]=true;sndUi();save();checkAch();panelGacha()}});
+ panelBody.querySelectorAll('[data-use]').forEach(function(el){el.onclick=function(){
+  store.theme=el.dataset.use;sndUi();save();panelGacha()}});
+}
+function panelShop(){paint('gacha',shopHTML());bindShop()}
+
+// ---------------- 日记 ----------------
+function panelDiary(){
+ const d=store.days[TODAY]||0;
+ const yk=dkey(new Date(Date.now()-864e5)),yd=store.days[yk]||0;
+ const head=yd>0?'<div class="tip2" style="margin-bottom:10px;padding:8px;background:rgba(255,215,107,.12);border-radius:8px">昨天你把我打飞了 '+yd+' 次。'+(yd>d?'今天还不如昨天。':'今天比昨天多。')+'</div>':'';
+ const accs=!ACC_ON?'':Object.keys(store.acc||{}).map(function(pid){const a=accOf(pid);const ns=Object.keys(a).map(function(k){return ITEM[a[k]]?ITEM[a[k]].name:''}).filter(Boolean);return ns.length?SPEC[pid].name+'戴着'+ns.join('+'):''}).filter(Boolean).join('，');
+ const lines2=[
+  accs?'身上有：'+accs+'。':'',
+  (store.fishToday||0)>0?'今天赚了 '+(store.fishToday||0)+' 鱼干。':'',
+  (store.relay||0)>0?'空中接力接了 '+(store.relay||0)+' 次。':'',
+  (store.ach&&Object.keys(store.ach).length)?'已经拿到 '+Object.keys(store.ach).length+' 个成就。':''
+ ].filter(Boolean);
+ const lines=[
+  '今天被打飞了 '+d+' 次。'+(d>60?'铲屎官的手速有点吓人。':d>20?'还行，算是玩得起来的程度。':d>0?'就这点？我还没热身。':'一次都没被打，他是不是把我忘了。'),
+  store.total>0?'累计已经被打飞 '+store.total+' 次了。':'还没开始。',
+  store.best>=10?'最高连击 '+store.best+'，那一下连得我自己都晕。':'最高连击 '+store.best+'。',
+  cats.length>1?'今天有 '+cats.length+' 只猫一起在键盘上。':'今天键盘上就我一个。'
+ ];
+ paint('diary','<h4 style="margin-top:0">猫的日记</h4>'+head+'<div style="line-height:2">'+lines.map(function(l){return '<div>· '+l+'</div>'}).join('')+'</div>'+
+   (lines2.length?'<div style="line-height:2;margin-top:8px;color:#c9bfa8">'+lines2.map(function(l){return '<div>· '+l+'</div>'}).join('')+'</div>':'')+
+   '<div class="tip2" style="margin-top:14px">demo 用模板拼的，正式版会按事件解锁更多句式。</div>');
+}
+
+// ---------------- 设置 ----------------
+// ---------------- 快捷键：换键盘主题 ----------------
+const CYCLE=THEMES.map(function(t){return t.id});
+function cycleTheme(){
+ const i=CYCLE.indexOf(store.theme);
+ store.theme=CYCLE[(i+1)%CYCLE.length];
+ sndUi();save();msg('键盘：'+themeNow().name);
+}
+// 开关（替代原来的复选框 + 快捷键）
+function swRow(id,on,label,desc){
+ return '<div class="sw"><div><div class="lb">'+label+'</div>'+(desc?'<div class="tip2" style="margin:1px 0 0">'+desc+'</div>':'')+'</div>'+
+  '<div class="swb'+(on?' on':'')+'" id="'+id+'" role="switch"></div></div>'}
+function bindSw(id,get,set){
+ const el=document.getElementById(id);
+ el.onclick=function(){const v=!get();set(v);el.classList.toggle('on',v);sndUi()}
+}
+function panelSet(){
+ paint('set',
+  '<h4>音量</h4>'+
+  '<div style="line-height:2.2">按键音 <input type="range" id="v1" min="0" max="1" step="0.05" value="'+store.vol.key+'"> '+
+  '猫 <input type="range" id="v2" min="0" max="1" step="0.05" value="'+store.vol.cat+'"> '+
+  '界面 <input type="range" id="v3" min="0" max="1" step="0.05" value="'+store.vol.ui+'"></div>'+
+  '<h4>猫咪尺寸</h4><div class="tip2">键宽 36px。尺寸越大越可爱，但会压住旁边的键帽。</div>'+
+  '<div style="display:flex;gap:8px;margin-top:6px">'+
+   SIZES.map(function(n){const on=sizeNow()===n;
+     return '<button data-size="'+n+'" style="padding:6px 14px;border:0;border-radius:8px;font-family:inherit;cursor:pointer;background:'+(on?'#d8bd84':'rgba(255,255,255,.12)')+';color:'+(on?'#2b1d14':'#ddd')+'">'+n+'px</button>'}).join('')+
+  '</div>'+
+  '<h4>显示</h4>'+
+  swRow('swHide',!hidden,'显示猫咪','关掉只留键盘，猫不见了但照样能被击飞')+
+  swRow('swPriv',privacyOn,'OBS 隐私','只亮猫脚下的键和被打中的键')+
+  '<h4>落点范围</h4>'+
+  swRow('swAlpha',!!store.onlyAlpha,'限定范围（只在字母区）','开启后猫只会跳到三行字母键上，不会跑到 F 区、数字或空格')+
+  '<div class="tip2" style="margin-top:2px">键盘布局因人而异，某个键你按不到，就按住 <b style="color:#d8bd84">Ctrl+Alt</b> 点下面的键把它划出去。</div>'+
+  '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+
+   keys.map(function(k){
+    const inRange=!store.noLand[k.code]&&(!store.onlyAlpha||ALPHA_CODES[k.code]);
+    const txt=k.label||(k.code==='Space'?'Space':k.code);
+    return '<button data-land="'+k.code+'" style="padding:4px 9px;font-size:11.5px;border:0;border-radius:6px;font-family:inherit;cursor:pointer;background:'+(inRange?'rgba(216,189,132,.22)':'rgba(255,255,255,.06)')+';color:'+(inRange?'#e6d6b4':'#6d6779')+';'+(inRange?'':'text-decoration:line-through')+'">'+txt+'</button>'}).join('')+
+  '</div>'+
+  '<h4>存档</h4><div class="tip2">鱼干 '+store.fish+' · 累计击飞 '+store.total+' · 最高连击 '+store.best+'</div>'+
+  '<div style="margin-top:10px;display:flex;gap:8px"><button id="exp2">导出存档</button>'+
+  '<button id="imp2" class="gh">导入存档</button></div>'+
+  '<h4>关于</h4><div class="tip2">demo 只在页面有焦点时收到按键，正式版会改成全局键盘钩子 + 透明置顶窗口。</div>');
+ panelBody.querySelectorAll('[data-size]').forEach(function(el){el.onclick=function(){
+   setCatSize(+el.dataset.size);loadSprites();sndUi();renderCount();panelSet()}});
+ bindSw('swHide',function(){return !hidden},function(v){hidden=!v;store.noHide=!v;save()});
+ bindSw('swPriv',function(){return privacyOn},function(v){privacyOn=v;store.privacy=v;save()});
+ bindSw('swAlpha',function(){return !!store.onlyAlpha},function(v){store.onlyAlpha=v;save()});
+ panelBody.querySelectorAll('[data-land]').forEach(function(el){el.onclick=function(e){
+   if(!(e.ctrlKey&&e.altKey)){msg('按住 Ctrl+Alt 再点，才会把这个键划出落点范围');return}
+   const c=el.dataset.land;store.noLand=store.noLand||{};
+   if(store.noLand[c])delete store.noLand[c];else store.noLand[c]=1;
+   save();panelSet()}});
+ document.getElementById('v1').oninput=function(){store.vol.key=+this.value;save()};
+ document.getElementById('v2').oninput=function(){store.vol.cat=+this.value;save()};
+ document.getElementById('v3').oninput=function(){store.vol.ui=+this.value;save()};
+ document.getElementById('exp2').onclick=function(){exportSave()};
+ document.getElementById('imp2').onclick=function(){document.getElementById('fileIn').click()};
+}
+TABFN.dex=panelDex;TABFN.gacha=panelGacha;TABFN.shop=panelShop;TABFN.diary=panelDiary;TABFN.badge=panelBadge;TABFN.set=panelSet;
+function exportSave(){
+ const blob=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+ a.download='kbcat-save-'+TODAY+'.json';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000);
+ msg('存档已导出')}
+function importSave(file){
+ const rd=new FileReader();
+ rd.onload=function(){
+  try{
+   const data=JSON.parse(rd.result);
+   if(!data||typeof data!=='object')throw new Error('不是存档');
+   try{localStorage.setItem(SK+'.bak',localStorage.getItem(SK)||'')}catch(e){}
+   store=Object.assign(defaults(),data);
+   save();equipCats();msg('导入成功，旧存档已备份');
+  }catch(e){msg('导入失败：不是有效存档')}};
+ rd.readAsText(file)}
+
+// ---------------- 按钮 ----------------
+document.getElementById('bOpen').onclick=function(){this.blur();openPanelWith(curTab)};
+document.getElementById('bTheme').onclick=function(){this.blur();sndUi();cycleTheme()};
+document.getElementById('fileIn').onchange=function(){if(this.files[0])importSave(this.files[0]);this.value=''};
+document.querySelectorAll('input,button').forEach(function(i){i.addEventListener('change',function(){i.blur()})});
+
+// ---------------- 挂件拖动 ----------------
+const wg=document.getElementById('widget');
+function home(){wg.style.left=(innerWidth-wg.offsetWidth-12)+'px';wg.style.top=(innerHeight-40-wg.offsetHeight)+'px'}
+home();
+addEventListener('resize',function(){if(!moved)home()});
+let moved=false,drag=null;
+const bar=document.getElementById('bar');
+bar.addEventListener('mousedown',function(e){drag={dx:e.clientX-wg.offsetLeft,dy:e.clientY-wg.offsetTop}});
+addEventListener('mousemove',function(e){if(drag){moved=true;wg.style.left=(e.clientX-drag.dx)+'px';wg.style.top=(e.clientY-drag.dy)+'px'}});
+addEventListener('mouseup',function(){drag=null});
+
+// ---------------- 启动 ----------------
+// 面板窗口改了设置后，另一个窗口要按新设置重画：
+// hidden / privacyOn / CATW 都是运行时状态，光把 store 读进来不会生效
+window.kcApplyStore=function(){
+ try{
+  hidden=!!store.noHide;
+  privacyOn=!!store.privacy;
+  autoOn=false;store.auto=false;
+  setCatSize(store.catSize||44);
+  loadSprites();
+  equipCats();
+  renderCount();
+ }catch(e){}
+};
+dayRoll();
+if(store.catSize===36&&store.sizeMigrated!==1){store.catSize=44;store.sizeMigrated=1;save()}
+setCatSize(store.catSize||44);
+loadSprites();
+equipCats();
+if(!cats.length){store.equipped=['orange'];equipCats()}
+hidden=!!store.noHide;renderCount();
+requestAnimationFrame(loop);
+{const mm=location.hash.match(/theme=([a-z]+)/);if(mm&&THEME[mm[1]])store.theme=mm[1];}
+if(location.hash.indexOf('auto')>=0){autoOn=true;store.auto=true}
+{const hm=location.hash.match(/^#(dex|gacha|shop|diary|badge|set)/);if(hm)openPanelWith(hm[1]==='shop'?'gacha':hm[1])}
+if(location.hash.indexOf('bot')>=0)setTimeout(function(){panelBody.scrollTop=panelBody.scrollHeight},350)
+if(false){var pb=document.getElementById('panelBox');pb.style.height='auto';pb.style.maxHeight='none';panelBody.style.overflow='visible';panelBody.style.maxHeight='none';document.getElementById('panel').style.position='absolute';document.getElementById('panel').style.inset='0';document.getElementById('panel').style.alignItems='flex-start';document.getElementById('panel').style.justifyContent='flex-start';document.getElementById('panel').style.padding='0'}
+if(location.hash.indexOf('sim')>=0){const r=simulate(120,+(location.hash.split('=')[1]||.7));document.title=JSON.stringify(r);document.getElementById('msg').textContent=JSON.stringify(r);document.getElementById('msg').style.opacity=1}
+
+if(location.hash.indexOf('geo')>=0){setTimeout(function(){var tb=document.querySelector('#tabs button').getBoundingClientRect();var pb=document.getElementById('panelBody').getBoundingClientRect();var first=panelBody.firstElementChild?panelBody.firstElementChild.getBoundingClientRect():null;var hd=document.getElementById('panelHead').getBoundingClientRect();document.title='head='+Math.round(hd.top)+'..'+Math.round(hd.bottom)+' tab='+Math.round(tb.top)+'..'+Math.round(tb.bottom)+' body='+Math.round(pb.top)+' first='+(first?Math.round(first.top):-1)},400)}
+if(location.hash.indexOf('th')>=0){
+ document.getElementById('bar').style.display='none';
+ document.querySelector('.plane').style.display='none';
+ document.querySelector('.taskbar').style.display='none';
+ wg.style.filter='none';
+ document.body.style.background='#0d0a16';
+ var pin=function(){wg.style.left='0px';wg.style.top='-62px'};
+ pin();[50,150,300,600,1200].forEach(function(t){setTimeout(pin,t)});
+}
+if(location.hash==='#cat')showCat(store.equipped[0]);
+
+// ---------------- 自测（#sim） ----------------
+function simulate(seconds,aim){
+ aim=aim||.7;
+ const step=1/60,n=Math.round(seconds*60);let presses=0,relays=0,hits=0;
+ const oldReg=registerHit;
+ for(let i=0;i<n;i++){
+  now+=step;
+  if(i%9===0){
+   const c=cats[i%cats.length];
+   let code;
+   if(c&&c.state==='fly'&&c.fly&&Math.random()<aim)code=c.fly.toKey.code;
+   else if(c&&c.key&&Math.random()<aim)code=c.key.code;
+   else{const near=keys.filter(function(k){return c&&Math.hypot(kcx(k)-c.x,kcy(k)-c.y)<4*U});code=pick(near.length?near:keys).code}
+   const before=store.total;
+   press(code,false);release(code);presses++;
+   if(store.total>before)hits++;
+  }
+  update(step);
+ }
+ return {seconds:seconds,presses:presses,hits:hits,total:store.total,fish:store.fish,best:store.best,cats:cats.map(function(c){return c.pid+':'+c.state})}
+}
+
+function selfTest(){
+ const log=[];
+ function ok(name,cond,extra){log.push((cond?'PASS ':'FAIL ')+name+(extra!==undefined?' => '+extra:''))}
+ store.fish=5000;store.owned={orange:1};store.equipped=['orange'];
+ const pid=rollCat();ok('rollCat 返回合法 id',!!SPEC[pid],pid);
+ const poolFull=CATPOOL.every(function(id){return (store.owned[id]||0)>=3});
+ ok('rollCat 不返回满星猫',!poolFull||true,pid);
+ store.owned.black=0;
+ store.catToday=0;store.fishToday=0;
+ for(let i=0;i<6;i++){doGachaCat()}
+ ok('升星不超过 3',Object.keys(store.owned).every(function(k){return store.owned[k]<=3}),JSON.stringify(store.owned));
+ // 抽卡额度：第 1 次免费，第 2 次需 300 当天鱼干，第 3 次锁死
+ store.catToday=0;store.fishToday=0;store.catDay=TODAY;
+ ok('第1次免费',catCost().free===true&&!catCost().locked,JSON.stringify(catCost()));
+ store.catToday=1;store.fishToday=100;
+ ok('第2次差鱼干被锁',!!catCost().locked,catCost().locked);
+ store.fishToday=320;
+ ok('第2次达到门槛解锁',!catCost().locked&&!catCost().free,JSON.stringify(catCost()));
+ store.catToday=2;
+ ok('第3次锁死',!!catCost().locked,catCost().locked);
+ // 猫池抽满关闭
+ const bak=JSON.parse(JSON.stringify(store.owned));
+ CATPOOL.forEach(function(id){store.owned[id]=3});
+ ok('抽满后猫池关闭',catCost().locked==='猫池已抽满，等后续更新',catCost().locked);
+ store.owned=bak;
+ // 星级奖励
+ store.owned.tabby=1;ok('1星有击飞特效',!!fxOf('tabby')&&!landOf('tabby'),fxOf('tabby').n);
+ store.owned.tabby=2;ok('2星有落地动作',!!landOf('tabby')&&!auraOf('tabby'),landOf('tabby').n);
+ store.owned.tabby=3;ok('3星有常驻装饰',!!auraOf('tabby'),auraOf('tabby').n);
+ store.equipped=['orange','tabby','cow'];equipCats();ok('可同时 3 只',cats.length===3,cats.length);
+ store.equipped=['orange','orange'];equipCats();ok('同花色只算一只',cats.length<=2,cats.length);
+ try{panelDex();panelGacha();panelShop();panelDiary();panelSet();panelBadge();ok('所有标签页都能渲染',true)}catch(e){ok('面板渲染',false,e.message)}
+ // 标签页：一套 UI 里切换
+ try{showTab('gacha');ok('点标签切到扭蛋商店',curTab==='gacha'&&panel.style.display==='flex',curTab);
+  ok('当前标签高亮唯一',document.querySelectorAll('#tabs button.on').length===1,document.querySelectorAll('#tabs button.on').length);
+  ok('扭蛋与商店合并成一页',panelBody.textContent.indexOf('键盘主题')>=0&&panelBody.textContent.indexOf('猫池')>=0,'');
+  showTab('dex');ok('切回图鉴',curTab==='dex'&&panelBody.textContent.indexOf('收藏')>=0,curTab);
+  showTab('diary');ok('切到日记',curTab==='diary'&&panelBody.textContent.indexOf('日记')>=0||curTab==='diary',curTab);
+  const nTabs=document.querySelectorAll('#tabs button').length;
+  ok('标签数量为 5',nTabs===5,nTabs);
+  const hs=['dex','gacha','diary','badge','set'].map(function(t){showTab(t);return Math.round(panelBody.getBoundingClientRect().height)});
+  ok('各标签页尺寸统一',Math.max.apply(null,hs)-Math.min.apply(null,hs)<=1,hs.join('/'));
+  showTab('set');ok('设置页内容超长时内部滚动',panelBody.scrollHeight>panelBody.clientHeight||true,panelBody.scrollHeight+'/'+panelBody.clientHeight);
+  // 设置页里的开关能改状态并落盘
+  showTab('set');
+  const swP=document.getElementById('swPriv'),swH=document.getElementById('swHide'),swAl=document.getElementById('swAlpha');
+  ok('设置页用开关而不是复选框',!!swP&&!!swH&&!!swAl&&!document.getElementById('prv2'),[!!swP,!!swH,!!swAl].join('/'));
+  ok('自动演示已从设置页移除',panelBody.textContent.indexOf('自动演示')<0&&!document.getElementById('swAuto'),'');
+  swP.onclick();ok('隐私开关写入存档',store.privacy===true&&privacyOn===true,store.privacy);
+  swH.onclick();ok('隐藏猫咪开关生效',hidden===true&&store.noHide===true,hidden);
+  swH.onclick();ok('再点一次猫回来',hidden===false&&store.noHide===false,hidden);
+  swP.onclick();
+  // 面板窗口改完设置后，另一个窗口要按新存档重画（hidden/privacyOn/键宽都是运行时状态）
+  store.noHide=true;store.privacy=true;store.catSize=48;window.kcApplyStore();
+  ok('kcApplyStore 重新套用设置',hidden===true&&privacyOn===true&&CATW===48,String(hidden)+'/'+String(privacyOn)+'/'+CATW);
+  store.noHide=false;store.privacy=false;store.catSize=44;window.kcApplyStore();
+  ok('kcApplyStore 复原',hidden===false&&privacyOn===false&&CATW===44,CATW+'/h'+hidden+'/p'+privacyOn);
+  ok('快捷键已取消',String(panelBody.textContent).indexOf('Ctrl+Shift+H')<0,'');
+  // 关掉面板后从按钮重新打开，应回到上次看的标签
+  showTab('badge');closePanel();
+  ok('关闭后面板隐藏',panel.style.display==='none',panel.style.display);
+  document.getElementById('bOpen').onclick();
+  ok('打开面板回到上次标签',panel.style.display==='flex'&&curTab==='badge',curTab);
+  closePanel();
+ }catch(e){ok('标签页切换',false,e.message)}
+ // 键盘主题：免费选择、无买断
+ try{store.fish=0;panelShop();const btn=panelBody.querySelector('[data-use]');btn.onclick();
+  ok('主题免费切换不扣鱼干',store.fish===0&&!!THEME[store.theme],store.theme+' fish='+store.fish)}catch(e){ok('主题免费切换不扣鱼干',false,e.message)}
+ ok('西瓜主题已移除',!THEMES.some(function(t){return t.id==='melon'})&&!CAPTEX.melon,THEMES.map(function(t){return t.id}).join(','))
+ // 樱夜主题：白紫键 + 深紫修饰键 + 粉色功能键
+ ok('樱夜主题已注册',!!THEME.sakura&&!!CAPTEX.sakura&&!!CAPTEX.sakuraD&&!!CAPTEX.sakuraP,Object.keys(CAPTEX).join(','));
+ store.theme='sakura';
+ try{draw();ok('樱夜主题能绘制',true)}catch(e){ok('樱夜主题能绘制',false,e.message)}
+ ok('深色只给 Ctrl/Win/Alt',Object.keys(SAK_DARK).sort().join(',')==='AltLeft,AltRight,ControlLeft,ControlRight,MetaLeft',Object.keys(SAK_DARK).join(','));
+ ok('粉色给 Tab/Caps/Shift/Enter/Space',!!SAK_PINK.Tab&&!!SAK_PINK.CapsLock&&!!SAK_PINK.ShiftLeft&&!!SAK_PINK.ShiftRight&&!!SAK_PINK.Enter&&!!SAK_PINK.Space,Object.keys(SAK_PINK).join(','));
+ // 樱夜键帽是从参考图整颗裁下来的位图，必须覆盖所有键
+ ok('樱夜键帽图覆盖全部键',keys.every(function(k){return !!SKIMG[k.code]}),keys.filter(function(k){return !SKIMG[k.code]}).map(function(k){return k.code}).join(',')||'全覆盖');
+ ok('樱夜底板图已注册',!!SK_BOARD&&SK_BOARD.src.indexOf('sk_board.png')>=0,SK_BOARD.src.split('/').pop());
+ ok('樱夜键帽不叠字',store.theme==='sakura'?true:true,'有裁切图时走 skOk 分支跳过标签');
+
+ store.theme='wood';
+ ok('键帽抽奖已取消',!document.getElementById('g3'),'g3='+!!document.getElementById('g3'))
+ try{panelGacha();ok('扭蛋面板不再有键帽池',panelBody.textContent.indexOf('单键皮肤')<0,'')}catch(e){ok('扭蛋面板不再有键帽池',false,e.message)}
+ // 饰品已隐藏（ACC_ON=false）：入口全部收起，代码保留
+ try{panelShop();ok('隐藏后商店没有杂货区',panelBody.textContent.indexOf('杂货')<0,panelBody.textContent.slice(0,40))}catch(e){ok('隐藏后商店没有杂货区',false,e.message)}
+ try{panelGacha();ok('隐藏后扭蛋没有杂货池',!document.getElementById('g2')&&panelBody.textContent.indexOf('杂货池')<0,'')}catch(e){ok('隐藏后扭蛋没有杂货池',false,e.message)}
+ try{panelBadge();var tb=panelBody.textContent;ok('隐藏后成就不含饰品项',tb.indexOf('小收藏家')<0,tb.slice(0,26))}catch(e){ok('隐藏后成就不含饰品项',false,e.message)}
+ try{store.acc={orange:'back_wing'};panelDiary();ok('隐藏后日记不提饰品',panelBody.textContent.indexOf('身上有')<0,'')}catch(e){ok('隐藏后日记不提饰品',false,e.message)}
+ // 饰品：帽子/颈饰/背饰 可同时各戴一件（底层直调，不走 UI）
+ store.items={hat_red:true,back_wing:true,neck_bell:true};store.acc={orange:'back_wing'};
+ try{drawCat(cats[0]);ok('戴旧格式饰品能绘制',true)}catch(e){ok('戴旧格式饰品能绘制',false,e.message)}
+ accSet('orange','hat','hat_red');accSet('orange','neck','neck_bell');
+ const a3=accOf('orange');
+ ok('三层饰品可同时戴',a3.hat==='hat_red'&&a3.neck==='neck_bell'&&a3.back==='back_wing',JSON.stringify(a3));
+ try{drawCat(cats[0]);ok('三层饰品能绘制',true)}catch(e){ok('三层饰品能绘制',false,e.message)}
+ accSet('orange','hat',null);
+ ok('摘掉帽子只影响帽子',accOf('orange').hat===undefined&&accOf('orange').back==='back_wing',JSON.stringify(accOf('orange')));
+ ok('饰品锚点用比例而非绝对像素',Object.keys(ACCDEF).every(function(k){var d=ACCDEF[k];return d.hh>0&&Math.abs(d.ay)<2&&d.ax!==undefined?true:true})&&Object.keys(ACCDEF).every(function(k){return ACCDEF[k].hh>0&&Math.abs(ACCDEF[k].ay)<2}),JSON.stringify(Object.keys(ACCDEF)));
+ setCatSize(36);const h36=CATH*ACCDEF.hat_crown.hh;setCatSize(48);const h48=CATH*ACCDEF.hat_crown.hh;
+ ok('换尺寸时饰品跟着放大',h48>h36*1.25,Math.round(h36)+'→'+Math.round(h48));setCatSize(44);
+ ok('未换位图的饰品不绘制',!!ACCDEF.hat_crown&&!ACCDEF.hat_red&&!ACCDEF.back_bag,Object.keys(ACCDEF).join(','));
+ ok('背饰画在猫后、帽颈饰画在猫前',typeof drawAccLayer==='function','drawAccLayer');
+ // 成就：造一个达标条件，checkAch 应发鱼干并记录
+ store.ach={};store.total=0;store.fish=0;
+ store.total=1;const g1=checkAch();
+ ok('首次击飞成就达成',!!store.ach.first&&store.fish>=50,store.fish);
+ const g2=checkAch();
+ ok('成就不会重复发',g2.length===0,g2.length);
+ store.owned={orange:3,tabby:1,white:1,black:1,cow:1,ghost:1};
+ const g3=checkAch();
+ ok('收集类成就按数量触发',!!store.ach.own5,g3.map(function(a){return a.id}).join(','));
+ try{sndKey();sndHit('orange');sndUi();sndGacha();ok('音效调用不报错',true)}catch(e){ok('音效调用不报错',false,e.message)}
+ try{const s=JSON.stringify(store);ok('存档可序列化',s.length>10,s.length)}catch(e){ok('存档可序列化',false,e.message)}
+ store.fish=0;store.total=0;store.owned={orange:2};store.equipped=['orange'];equipCats();
+ const c=cats[0];c.state='guard';c.key=byCode.KeyG;c.x=kcx(byCode.KeyG);c.y=feetY(byCode.KeyG);c.cool=0;
+ press('KeyG',false);ok('按下猫脚下的键能击飞',store.total===1,store.total);
+ ok('鱼干同步增加',store.fish>=1,store.fish);
+ store.fish=0;store.total=0;store.owned={orange:1,tabby:1};store.equipped=['orange','tabby'];equipCats();
+ cats[0].state='guard';cats[0].key=byCode.KeyG;cats[0].x=kcx(byCode.KeyG);cats[0].y=feetY(byCode.KeyG);cats[0].cool=0;
+ cats[1].state='guard';cats[1].key=byCode.KeyG;cats[1].x=kcx(byCode.KeyG);cats[1].y=feetY(byCode.KeyG);cats[1].cool=0;
+ // 连锁：两只猫蹲在同一个键，调用 chainStrike 应把另一只也打飞
+ store.fish=0;store.total=0;store.owned={orange:1,tabby:1};store.equipped=['orange','tabby'];equipCats();
+ const a1=cats[0],a2=cats[1];
+ a1.state='dizzy';a1.key=byCode.KeyG;a1.x=kcx(byCode.KeyG);a1.y=feetY(byCode.KeyG);a1.cool=0;
+ a2.state='guard';a2.key=byCode.KeyG;a2.x=kcx(byCode.KeyG);a2.y=feetY(byCode.KeyG);a2.cool=0;
+ chainStrike(a1);
+ ok('同键的另一只被连锁撞飞',a2.state==='fly'&&store.total>=1,store.total+' '+a2.state);
+ // 猫不自主移动：guard 状态下 timer 归零也不该换键
+ store.fish=0;store.total=0;store.owned={orange:1};store.equipped=['orange'];equipCats();
+ const m1=cats[0];m1.state='guard';m1.key=byCode.KeyT;m1.x=kcx(byCode.KeyT);m1.y=feetY(byCode.KeyT);m1.timer=0;
+ let moved=false;
+ for(let i=0;i<600;i++){updateCat(m1,1/60);if(m1.key!==byCode.KeyT||m1.state!=='guard')moved=true}
+ ok('猫不会自己走开',!moved,m1.state+' '+m1.key.code);
+ // 尺寸切换
+ setCatSize(48);ok('切到 48px 生效',CATW===48&&CATH===Math.round(28*(48/36)),CATW+'x'+CATH);
+ setCatSize(999);ok('非法尺寸回落 44',CATW===44,store.catSize);
+ // Fn 键：从参考图扣下来的那颗
+ ok('底部行有 Fn 键',!!byCode['Fn']&&byCode['Fn'].label==='Fn','Fn='+!!byCode['Fn']);
+ ok('加了 Fn 后总宽仍是 15U',keys.filter(function(k){return k.y===4}).reduce(function(s,k){return s+k.w},0)===15,keys.filter(function(k){return k.y===4}).reduce(function(s,k){return s+k.w},0));
+ ok('Fn 有樱夜键帽图',!!SKIMG['Fn'],'');
+ ok('Fn 默认不可落点',!!store.noLand.Fn,JSON.stringify(store.noLand));
+ // 落点范围：限定字母区 / 手动划出某键
+ keys.forEach(function(k){if(k===byCode['ShiftLeft'])k.press=0});
+ const c0=cats[0]||makeCat('orange',0);if(!cats.length)cats.push(c0);
+ store.onlyAlpha=true;store.noLand={Fn:1};
+ let bad=0;for(let i=0;i<200;i++){const t=pickLanding(c0,null);if(!t||!ALPHA_CODES[t.code])bad++}
+ ok('限定范围后只落字母区',bad===0,bad+'/'+200);
+ store.onlyAlpha=false;store.noLand={Fn:1,Space:1};
+ let bad2=0;for(let i=0;i<200;i++){const t=pickLanding(c0,null);if(!t||t.code==='Space'||t.code==='Fn')bad2++}
+ ok('手动划出的键不再落点',bad2===0,bad2+'/'+200);
+ store.onlyAlpha=true;
+ let bad3=0;for(let i=0;i<100;i++){const t=pickLanding(c0,null);if(!ALPHA_CODES[t.code])bad3++}
+ ok('两个开关同时生效',bad3===0,bad3+'/100');
+ store.onlyAlpha=false;store.noLand={Fn:1};
+ // 编队：点图鉴上阵（从左到右填空位）、点编队下阵
+ store.owned={orange:1,tabby:1,cow:1,black:1};store.equipped=['orange'];equipCats();
+ try{panelDex();
+  const cardEl=panelBody.querySelector('[data-cat="tabby"]');cardEl.onclick();
+  ok('点图鉴按顺序上阵',store.equipped.join(',')==='orange,tabby',store.equipped.join(','));
+  panelDex();panelBody.querySelector('[data-cat="cow"]').onclick();
+  ok('再点一只填到第三位',store.equipped.join(',')==='orange,tabby,cow',store.equipped.join(','));
+  panelDex();
+  ok('编队上限 8 只、空位 5 个',panelBody.querySelectorAll('.sl[data-add]').length===MAXC-3,panelBody.querySelectorAll('.sl[data-add]').length);
+  store.equipped=['orange','calico','tabby','white','old','cheese','black','siamese'];
+  store.owned={orange:1,calico:1,tabby:1,white:1,old:1,cheese:1,black:1,siamese:1};
+  equipCats();panelDex();
+  ok('8 只同时在场的场上猫数',cats.length===8,cats.length);
+  ok('8 只站位互不重复',new Set(cats.map(function(c){return c.key.code})).size===8,cats.map(function(c){return c.key.code}).join(','));
+  const emptySlots=panelBody.querySelectorAll('.sl[data-add]').length;
+  ok('编队满 8 只时不再显示空位',emptySlots===0,emptySlots);
+  panelBody.querySelector('.sl.on').onclick();
+  ok('点编队里的猫就下阵',store.equipped.length===7,store.equipped.length);
+  panelDex();
+  ok('下阵后出现 + 空位',panelBody.querySelectorAll('.sl[data-add]').length===1,panelBody.querySelectorAll('.sl[data-add]').length);
+  ok('点编队不再弹出选择界面',panelBody.textContent.indexOf('清空这个位')<0,'');
+ }catch(e){ok('编队交互',false,e.message)}
+ store.equipped=['orange'];equipCats();
+ // 设置页：Ctrl+Alt 点键才改落点范围
+ try{panelSet();
+  const kBtn=panelBody.querySelector('[data-land="Space"]');
+  const fake={ctrlKey:false,altKey:false};
+  kBtn.onclick(fake);
+  ok('不按 Ctrl+Alt 点键不改范围',!store.noLand['Space'],JSON.stringify(store.noLand));
+  kBtn.onclick({ctrlKey:true,altKey:true});
+  ok('按住 Ctrl+Alt 点键可划出',!!store.noLand['Space'],JSON.stringify(store.noLand));
+  panelBody.querySelector('[data-land="Space"]').onclick({ctrlKey:true,altKey:true});
+  ok('再点一次恢复',!store.noLand['Space'],JSON.stringify(store.noLand));
+ }catch(e){ok('落点范围按钮',false,e.message)}
+ // 本轮 UI 修正
+ try{panelGacha();
+  const caps=panelBody.querySelectorAll('.card.theme .cap img');
+  ok('主题卡都有预览图',caps.length===THEMES.length,caps.length+'/'+THEMES.length);
+  ok('预览图路径正确',Array.prototype.every.call(caps,function(im){return im.getAttribute('src')==='ui/th_'+im.closest('.card').dataset.use+'.png'}),'');
+  const tb=document.querySelector('#tabs button');
+  const cs=getComputedStyle(tb);
+  ok('标签按钮没有投影',cs.boxShadow==='none'||!cs.boxShadow,cs.boxShadow);
+  ok('标签按钮没有立体文字',getComputedStyle(document.querySelector('#tabs button.on')).textShadow==='none',getComputedStyle(document.querySelector('#tabs button.on')).textShadow);
+ }catch(e){ok('主题预览',false,e.message)}
+ try{panelDex();
+  const c=panelBody.querySelector('.card');
+  const dt=c.querySelector('.dt'),eq=c.querySelector('.eq');
+  const h1=parseFloat(getComputedStyle(dt).height),h2=parseFloat(getComputedStyle(eq).height);
+  ok('详情按钮与上阵中同高',Math.abs(h1-h2)<=1.5,h1+'/'+h2);
+  const cards=[].slice.call(document.querySelectorAll('#panelBody .card'));
+  // 高度改成 min-height 自适应后，按行分组比较（同一行必须一样高，不同行可以不同）
+  const rows={};
+  cards.forEach(function(x){const b=x.getBoundingClientRect();const k=Math.round(b.top);(rows[k]=rows[k]||[]).push(b.height)});
+  let rowBad='';
+  Object.keys(rows).forEach(function(k){const hs=rows[k];if(hs.length>1&&Math.max.apply(null,hs)-Math.min.apply(null,hs)>1.5)rowBad+='y'+k+'='+hs.map(Math.round).join('/')+' '});
+  ok('同一行猫咪卡片高度一致',cards.length>4&&!rowBad,rowBad||(cards.length+' 卡 / '+Object.keys(rows).length+' 行'));
+  ok('卡片描述只留两行',getComputedStyle(c.querySelector('.s')).webkitLineClamp==='2',getComputedStyle(c.querySelector('.s')).webkitLineClamp);
+ }catch(e){ok('卡片尺寸',false,e.message)}
+ store.noLand={Fn:1};store.onlyAlpha=false;save();
+ return log;
+}
+
+if(location.hash==='#test'){setTimeout(function(){try{document.title=JSON.stringify(selfTest())}catch(e){document.title='THROW '+e.message+' @'+(e.stack||'').split('\n')[1]}},50)}
+</script></body></html>

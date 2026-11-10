@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>键盘猫 demo</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+body{background:linear-gradient(135deg,#27365c,#5d4a78 55%,#b9786a)}
+.tip{position:absolute;left:24px;top:18px;color:#fff;font-size:14px;line-height:1.75;max-width:560px;opacity:.9}
+.tip b{color:#ffd76b}
+.ctrl{position:absolute;left:24px;top:190px;display:flex;flex-direction:column;gap:8px;color:#fff;font-size:13px}
+.ctrl label{cursor:pointer}
+.ctrl button{width:max-content;padding:4px 12px;border:0;border-radius:6px;background:#ffd76b;color:#2b1d14;cursor:pointer;font-size:13px}
+.taskbar{position:absolute;left:0;right:0;bottom:0;height:40px;background:rgba(18,18,26,.88);color:#aaa;font-size:12px;display:flex;align-items:center;padding-left:14px}
+#widget{position:absolute;user-select:none}
+#bar{display:flex;gap:14px;align-items:center;padding:4px 12px;font-size:13px;color:#fff;cursor:move;background:rgba(0,0,0,.4);border-radius:8px 8px 0 0;width:max-content;margin-left:10px}
+#bar b{color:#ffd76b}
+#combo{color:#ff9e5e;min-width:60px}
+canvas{display:block}
+#report{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);background:#fff8ec;border-radius:14px;padding:22px 30px;box-shadow:0 10px 40px rgba(0,0,0,.4);text-align:center;color:#2b1d14;display:none;min-width:280px}
+#report h3{margin:0 0 6px;font-size:15px;color:#a0602a}
+#report .big{font-size:44px;font-weight:bold;color:#e06b2c;margin:6px 0}
+#report button{margin-top:12px;padding:5px 16px;border:0;border-radius:6px;background:#2b1d14;color:#fff;cursor:pointer}
+</style></head><body>
+<div class="tip">
+<b>键盘猫 demo</b>（假数据原型，只验证手感）<br>
+直接在这个页面上打字。猫会往你最近打字的区域溜达，挑一个键蹲下（那个键会发橙光）。<br>
+按中它脚下的键就把它<b>击飞</b>；它在空中时按中落点那个键，就是<b>空中接力</b>。<br>
+4 秒内连续击中算连击；20 秒内被打 5 次它会生气，跑得更快，还会去霸占回车和退格。<br>
+顶部横条可以拖动。Ctrl+Shift+H 隐藏或显示猫。<br>
+<span style="opacity:.7">demo 只有在页面获得焦点时才收得到按键，正式版会改用全局钩子。</span>
+</div>
+<div class="ctrl">
+<label><input type="checkbox" id="privacy" tabindex="-1"> OBS 视图：只亮猫脚下的键和击中的键</label>
+<label><input type="checkbox" id="auto" tabindex="-1"> 自动演示（模拟打字）</label>
+<button id="showReport" tabindex="-1">预览战报卡片</button>
+<button id="resetCount" tabindex="-1" style="background:#ddd">清零计数</button>
+</div>
+<div id="widget">
+ <div id="bar"><span>今日 <b id="today">0</b></span><span>总计 <b id="total">0</b></span><span>最高连击 <b id="best">0</b></span><span id="combo"></span></div>
+ <canvas id="cv"></canvas>
+</div>
+<div class="taskbar">（这里假装是任务栏，挂件默认贴着它的顶部、靠右下角）</div>
+<div id="report"><h3 id="rTitle">昨日战报</h3><div id="rText">你把它打飞了</div><div class="big" id="rNum">0</div><div id="rSub"></div><button id="rClose" tabindex="-1">知道了</button></div>
+<script>
+const U=36,PAD=10,TOP=72,S=3;
+const keys=[],byCode={};
+function row(y,x,items){for(const it of items){const[code,label,w=1]=it;if(code){const k={code,label,x,y,w,press:0,flash:0,bounce:0};keys.push(k);byCode[code]=k;}x+=w;}}
+const L=s=>s.split('').map(c=>['Key'+c,c]);
+const y1=0;
+row(y1,0,[['Backquote','\`'],...'1234567890'.split('').map(d=>['Digit'+d,d]),['Minus','-'],['Equal','='],['Backspace','Back',2]]);
+row(y1+1,0,[['Tab','Tab',1.5],...L('QWERTYUIOP'),['BracketLeft','['],['BracketRight',']'],['Backslash','\\',1.5]]);
+row(y1+2,0,[['CapsLock','Caps',1.75],...L('ASDFGHJKL'),['Semicolon',';'],['Quote',"'"],['Enter','Enter',2.25]]);
+row(y1+3,0,[['ShiftLeft','Shift',2.25],...L('ZXCVBNM'),['Comma',','],['Period','.'],['Slash','/'],['ShiftRight','Shift',2.75]]);
+row(y1+4,0,[['ControlLeft','Ctrl',1.25],['MetaLeft','Win',1.25],['AltLeft','Alt',1.25],['Space','',6.25],['AltRight','Alt',1.25],['MetaRight','Win',1.25],['ContextMenu','Menu',1.25],['ControlRight','Ctrl',1.25]]);
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=Math.round(PAD*2+15*U),H=Math.round(TOP+5*U+PAD);cv.width=W;cv.height=H;
+const kcx=k=>PAD+(k.x+k.w/2)*U, kcy=k=>TOP+(k.y+.5)*U, feetY=k=>kcy(k)+9;
+function keyAt(x,y){return keys.find(k=>x>=PAD+k.x*U&&x<PAD+(k.x+k.w)*U&&y>=TOP+k.y*U&&y<TOP+(k.y+1)*U)||null}
+// ---------- 占位像素猫 ----------
+const COL={k:'#2b1d14',o:'#f2a24a',w:'#fff4e6',p:'#ff8fa3',e:'#1a1a1a',t:'#d9822b'};
+const o=n=>'o'.repeat(n);
+const BASE=['.k.......k.','kok.....kok','koookkkoook','k'+o(9)+'k','kooeoooeook','kowwwpwwwok','.kowwwwwok.','.k'+o(7)+'k.','kooowwwoook','kooowwwoook','kowwkokwwok','.kkkk.kkkk.'];
+function mk(over){const r=BASE.map((s,i)=>((over[i]||s)+'..').split(''));[[11,9],[12,8],[12,7],[12,6],[12,5]].forEach(([x,y])=>r[y][x]='t');return r}
+const CLOSED='kookoookook';
+const POSES={sit:mk({}),blink:mk({4:CLOSED}),walkA:mk({11:'kkk....kkk.'}),walkB:mk({11:'.kkk....kkk'}),fly:mk({4:CLOSED,5:'kowwkkkwwok',10:'kowwk.kwwok',11:'k.k.....k.k'}),dizzy:mk({4:CLOSED})};
+const SPR={};
+for(const n in POSES){for(const f of[1,-1]){const c=document.createElement('canvas'),g=c.getContext('2d'),rows=POSES[n];c.width=13*S;c.height=rows.length*S;rows.forEach((r,y)=>r.forEach((ch,x)=>{if(COL[ch]){g.fillStyle=COL[ch];g.fillRect((f===1?x:12-x)*S,y*S,S,S)}}));SPR[n+f]=c}}
+const SW=13*S,SH=12*S;
+// ---------- 状态 ----------
+const rand=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)];
+let now=0,freezeUntil=0,shake=0,hidden=false,lastHit=-99,combo=0;
+const recent=[],hitTimes=[],parts=[],pops=[],trail=[];
+const start=byCode['KeyJ'];
+const cat={x:kcx(start),y:feetY(start),state:'guard',key:start,target:null,timer:3,invuln:0,face:-1,fly:null,sq:0,sqType:'',angryUntil:0,phase:0};
+const angry=()=>now<cat.angryUntil;
+// ---------- 计数 ----------
+const SK='kbcat.v1';let store=JSON.parse(localStorage.getItem(SK)||'{"total":0,"best":0,"days":{}}');
+const dkey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const TODAY=dkey(new Date());
+function save(){localStorage.setItem(SK,JSON.stringify(store));renderCount()}
+function renderCount(){today.textContent=store.days[TODAY]||0;total.textContent=store.total;best.textContent=store.best;document.getElementById('combo').textContent=combo>=2&&now-lastHit<4?'连击 ×'+combo:''}
+renderCount();
+// ---------- 逻辑 ----------
+function pickTarget(){
+ if(angry()&&Math.random()<.55){const k=pick([byCode.Enter,byCode.Backspace]);if(k!==cat.key)return k}
+ const rc=recent.filter(r=>now-r.t<8);
+ const freq=k=>rc.filter(r=>r.k===k).length;
+ let cand=[];
+ if(rc.length){const base=pick(rc).k;cand=keys.filter(k=>k!==cat.key&&k.code!=='Space'&&freq(k)<=2&&Math.hypot(kcx(k)-kcx(base),kcy(k)-kcy(base))<2.7*U)}
+ if(!cand.length)cand=keys.filter(k=>k.code!=='Space'&&k!==cat.key);
+ return pick(cand)}
+function pickLanding(fromX,fromY,exclude){
+ let dir=fromX<PAD+7.5*U?1:-1;let tx=fromX+dir*rand(3,7)*U;
+ if(tx<PAD+U||tx>W-PAD-U){dir=-dir;tx=fromX+dir*rand(3,7)*U}
+ const ty=fromY+Math.round(rand(-2,2))*U;
+ let bestK=null,bd=1e9;for(const k of keys){if(k===exclude)continue;const d=Math.hypot(kcx(k)-tx,kcy(k)-ty);if(d<bd){bd=d;bestK=k}}
+ return bestK}
+function startFly(toKey,big){
+ const sx=cat.x,sy=cat.y,ex=kcx(toKey),ey=feetY(toKey),dist=Math.hypot(ex-sx,ey-sy);
+ const h=Math.min(60+dist*.18+(big?30:0),Math.min(sy,ey)-SH-4);
+ cat.fly={sx,sy,ex,ey,h,t:0,dur:.45+dist/1100,toKey,relayed:false,spin:(ex>sx?1:-1)*(big?6:4)*Math.PI};
+ cat.state='fly';cat.face=ex>sx?1:-1;trail.length=0}
+function burst(x,y,n,colors,spd){for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),v=rand(spd*.4,spd);parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-40,life:rand(.35,.6),max:.6,c:pick(colors),s:rand(2,4)})}}
+function pop(text,x,y,c,size){pops.push({text,x,y,t:0,c:c||'#fff',size:size||16})}
+function registerHit(k,relay){
+ const gap=now-lastHit;combo=gap<4?combo+1:1;lastHit=now;
+ store.total++;store.days[TODAY]=(store.days[TODAY]||0)+1;store.best=Math.max(store.best,combo);save();
+ hitTimes.push(now);while(hitTimes.length&&now-hitTimes[0]>20)hitTimes.shift();
+ freezeUntil=now+.075;shake=.16;k.flash=1;cat.sq=.22;cat.sqType='hit';
+ const x=cat.x,y=cat.y-SH/2;burst(x,y,12,['#fff','#ffe27a','#ffd0a0'],260);
+ if(relay)pop('空中接力!',x,y-24,'#7fe3ff',18);
+ else if(combo===3){pop('三连击!',x,y-26,'#ffd76b',22);burst(x,y,18,['#ffd76b','#ff9e5e'],340)}
+ else pop(combo>=2?'连击 ×'+combo:'+1',x,y-20,combo>=2?'#ff9e5e':'#fff');
+ if(!angry()&&hitTimes.length>=5){cat.angryUntil=now+10;pop('生气了!',x,y-46,'#ff5a5a',18)}
+ startFly(pickLanding(cat.x,cat.y-9,k),combo>=3)}
+function press(code,repeat){
+ const k=byCode[code];if(!k)return false;
+ k.press=1;if(repeat)return true;
+ recent.push({k,t:now});while(recent.length>40)recent.shift();
+ if(hidden)return true;
+ const hittable=(cat.state==='guard'||cat.state==='walk'||cat.state==='dizzy')&&cat.key===k;
+ if(hittable)registerHit(k,false);
+ else if(cat.state==='fly'&&cat.fly.toKey===k&&!cat.fly.relayed&&cat.fly.t>.15){cat.fly.relayed=true;registerHit(k,true)}
+ return true}
+function release(code){const k=byCode[code];if(k)k.press=0}
+addEventListener('keydown',e=>{
+ if(e.ctrlKey&&e.shiftKey&&e.code==='KeyH'){hidden=!hidden;e.preventDefault();return}
+ if(press(e.code,e.repeat))e.preventDefault()});
+addEventListener('keyup',e=>{release(e.code);e.preventDefault()});
+addEventListener('blur',()=>keys.forEach(k=>k.press=0));
+let autoT=0;
+function autoPlay(dt){autoT-=dt;if(autoT>0)return;autoT=rand(.22,.6);
+ let code;
+ if(cat.state==='fly'&&Math.random()<.3)code=cat.fly.toKey.code;
+ else if((cat.state==='guard'||cat.state==='walk'||cat.state==='dizzy')&&cat.key&&Math.random()<.32)code=cat.key.code;
+ else{const near=keys.filter(k=>Math.hypot(kcx(k)-cat.x,kcy(k)-cat.y)<4*U);code=pick(near.length?near:keys).code}
+ press(code,false);setTimeout(()=>release(code),70)}
+function update(dt){
+ if(document.getElementById('auto').checked)autoPlay(dt);
+ if(now<freezeUntil)return;
+ shake=Math.max(0,shake-dt);cat.sq=Math.max(0,cat.sq-dt);
+ for(const k of keys){k.flash=Math.max(0,k.flash-dt*2.5);k.bounce=Math.max(0,k.bounce-dt*6)}
+ for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=500*dt;p.life-=dt}
+ for(let i=parts.length-1;i>=0;i--)if(parts[i].life<=0)parts.splice(i,1);
+ for(const p of pops)p.t+=dt;while(pops.length&&pops[0].t>1.1)pops.shift();
+ const spd=angry()?240:120;
+ switch(cat.state){
+ case'guard':cat.timer-=dt;if(cat.timer<=0){cat.target=pickTarget();cat.state='walk'}break;
+ case'walk':{const t=cat.target,tx=kcx(t),ty=feetY(t),dx=tx-cat.x,dy=ty-cat.y,d=Math.hypot(dx,dy),st=spd*dt;
+  cat.phase+=dt*(angry()?16:10);if(Math.abs(dx)>1)cat.face=dx>0?1:-1;
+  if(d<=st){cat.x=tx;cat.y=ty;cat.key=t;cat.state='guard';cat.timer=angry()?rand(6,10):rand(4,9)}
+  else{cat.x+=dx/d*st;cat.y+=dy/d*st;cat.key=keyAt(cat.x,cat.y-9)}break}
+ case'fly':{const f=cat.fly;f.t+=dt/f.dur;const t=Math.min(1,f.t);
+  cat.x=f.sx+(f.ex-f.sx)*t;cat.y=f.sy+(f.ey-f.sy)*t-4*f.h*t*(1-t);
+  trail.push({x:cat.x,y:cat.y,r:f.spin*t});if(trail.length>7)trail.shift();
+  if(f.t>=1){cat.x=f.ex;cat.y=f.ey;cat.key=f.toKey;f.toKey.bounce=1;cat.sq=.18;cat.sqType='land';
+   for(let i=0;i<7;i++)parts.push({x:cat.x+rand(-14,14),y:cat.y-2,vx:rand(-90,90),vy:rand(-90,-30),life:rand(.3,.5),max:.5,c:'#c9c2b8',s:rand(2,3)});
+   cat.state='dizzy';cat.timer=1.0;cat.invuln=0;trail.length=0}break}
+ case'dizzy':cat.timer-=dt;if(cat.timer<=0){cat.state='guard';cat.timer=rand(.8,1.6)}break}
+ renderCount()}
+// ---------- 绘制 ----------
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function drawKeys(){
+ const priv=document.getElementById('privacy').checked;
+ for(const k of keys){
+  const x=PAD+k.x*U+2,w=k.w*U-4,h=U-4;let y=TOP+k.y*U+2;
+  const isCat=cat.key===k&&(cat.state==='guard'||cat.state==='dizzy');
+  const lit=k.press&&(!priv||isCat||k.flash>0);
+  const sink=(lit?2:0)+Math.sin(k.bounce*Math.PI)*3;y+=sink;
+  ctx.fillStyle='#1f222a';rr(x,y+3-sink*.5,w,h,6);ctx.fill();
+  ctx.fillStyle=lit?'#7d8bb0':'#454b59';rr(x,y,w,h-2,6);ctx.fill();
+  if(k.flash>0){ctx.fillStyle='rgba(255,226,122,'+k.flash+')';rr(x,y,w,h-2,6);ctx.fill()}
+  if(isCat&&now>=cat.invuln){ctx.strokeStyle='rgba(255,158,94,'+(.55+.35*Math.sin(now*6))+')';ctx.lineWidth=2;rr(x+1,y+1,w-2,h-4,6);ctx.stroke()}
+  ctx.fillStyle=lit?'#fff':'#c9cedb';ctx.font=(k.label.length>3?9:12)+'px "Microsoft YaHei",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(k.label,x+w/2,y+h/2-1)}}
+function drawCat(){
+ if(hidden)return;
+ let pose='sit';
+ if(cat.state==='walk')pose=Math.sin(cat.phase)>0?'walkA':'walkB';
+ else if(cat.state==='fly'||(cat.sq>0&&cat.sqType==='hit'))pose='fly';
+ else if(cat.state==='dizzy')pose='dizzy';
+ else if(now%3.2<.12)pose='blink';
+ let sx=1,sy=1;
+ if(cat.sq>0){const a=cat.sq/.2;if(cat.sqType==='hit'){sx=1+.45*a;sy=1-.4*a}else{sx=1+.3*a;sy=1-.3*a}}
+ const bob=cat.state==='walk'?Math.abs(Math.sin(cat.phase))*-3:0;
+ const rot=cat.state==='fly'?cat.fly.spin*Math.min(1,cat.fly.t):0;
+ if(cat.state==='fly')trail.forEach((p,i)=>{if(i%2)return;ctx.save();ctx.globalAlpha=.12+i*.04;ctx.translate(p.x,p.y-SH/2);ctx.rotate(p.r);ctx.drawImage(SPR['fly'+cat.face],-SW/2,-SH/2);ctx.restore()});
+ ctx.save();
+ ctx.fillStyle='rgba(0,0,0,.25)';if(cat.state!=='fly'){ctx.beginPath();ctx.ellipse(cat.x,cat.y-2,15*sx,4,0,0,Math.PI*2);ctx.fill()}
+ ctx.translate(cat.x,cat.y+bob);
+ if(rot){ctx.translate(0,-SH/2);ctx.rotate(rot);ctx.translate(0,SH/2)}
+ ctx.scale(sx,sy);ctx.drawImage(SPR[pose+cat.face],-SW/2,-SH);
+ ctx.restore();
+ if(cat.state==='dizzy')for(let i=0;i<3;i++){const a=now*5+i*2.1;ctx.fillStyle='#ffe27a';ctx.font='12px sans-serif';ctx.fillText('★',cat.x+Math.cos(a)*14,cat.y-SH-4+Math.sin(a)*4)}
+ if(angry()&&cat.state!=='fly'){ctx.fillStyle='#ff4d4d';ctx.font='bold 14px sans-serif';ctx.fillText('💢',cat.x+12*cat.face,cat.y-SH-2)}}
+function draw(){
+ ctx.clearRect(0,0,W,H);ctx.save();
+ if(shake>0)ctx.translate(rand(-3,3),rand(-3,3));
+ ctx.fillStyle='rgba(20,22,30,.78)';rr(4,TOP-8,W-8,H-TOP+4,12);ctx.fill();
+ drawKeys();drawCat();
+ for(const p of parts){ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.s,p.s)}ctx.globalAlpha=1;
+ for(const p of pops){ctx.globalAlpha=Math.max(0,1-p.t/1.1);ctx.font='bold '+p.size+'px "Microsoft YaHei",sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.6)';const y=p.y-p.t*36;ctx.strokeText(p.text,p.x,y);ctx.fillStyle=p.c;ctx.fillText(p.text,p.x,y)}ctx.globalAlpha=1;
+ ctx.restore()}
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;now+=dt;update(dt);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+// ---------- 挂件位置与拖动 ----------
+const wg=document.getElementById('widget');
+function home(){wg.style.left=(innerWidth-wg.offsetWidth-12)+'px';wg.style.top=(innerHeight-40-wg.offsetHeight)+'px'}
+home();
+addEventListener('resize',()=>{if(!moved)home()});
+let moved=false,drag=null;
+bar.addEventListener('mousedown',e=>{drag={dx:e.clientX-wg.offsetLeft,dy:e.clientY-wg.offsetTop}});
+addEventListener('mousemove',e=>{if(drag){moved=true;wg.style.left=(e.clientX-drag.dx)+'px';wg.style.top=(e.clientY-drag.dy)+'px'}});
+addEventListener('mouseup',()=>drag=null);
+// ---------- 战报 ----------
+function showReport(isPreview){
+ const y=new Date();y.setDate(y.getDate()-1);
+ const n=isPreview?(store.days[TODAY]||0):(store.days[dkey(y)]||0);
+ rTitle.textContent=isPreview?'今日战报（预览）':'昨日战报';rText.textContent=isPreview?'今天到目前为止，你把它打飞了':'昨天你把它打飞了';
+ rNum.textContent=n+' 次';rSub.textContent='历史最高连击 '+store.best+' · 累计 '+store.total+' 次';report.style.display='block'}
+const yk=(()=>{const y=new Date();y.setDate(y.getDate()-1);return dkey(y)})();
+if(store.days[yk]&&store.lastReport!==TODAY){store.lastReport=TODAY;save();showReport(false)}
+showReport.onclick=null;
+document.getElementById('showReport').onclick=e=>{e.target.blur();showReport(true)};
+rClose.onclick=e=>{e.target.blur();report.style.display='none'};
+resetCount.onclick=e=>{e.target.blur();store={total:0,best:0,days:{}};combo=0;save()};
+document.querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>i.blur()));
+if(location.hash==='#auto')document.getElementById('auto').checked=true;
+</script></body></html>

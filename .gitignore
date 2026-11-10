@@ -1,0 +1,39 @@
+# ===== 构建产物 / 调试残留（不入库）=====
+target/
+target_*/
+**/src-tauri/src-tauri/
+*.pdb
+*.exe
+*.msi
+*.log
+de*.log
+
+# ===== 工作区里大量试玩脚本与截图（本机专用）=====
+# 文件名以 _ 或 __ 开头的都是调试脚本/截图
+_*
+__*
+
+# ===== 非本仓库范围 =====
+dicts/
+ref/
+
+# ===== 通用 =====
+# ===== 生成物（由 desktop/_sync_web.js 从 demo.html 注入生成）=====
+desktop/web/index.html
+desktop/web/obs.html
+desktop/web/obs.js
+desktop/web/shell.js
+
+# ===== 调试残留 =====
+desktop/traytest*.rs
+desktop/traytest.manifest
+desktop/*.png
+*.png
+!asf/**
+!ui/**
+!desktop/src-tauri/icons/**
+!desktop/web/asf/**
+
+node_modules/
+.DS_Store
+Thumbs.db
